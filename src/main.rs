@@ -32,6 +32,9 @@ impl Default for GodotHubApp {
         // 将运行时设置到 state 中，供下载等功能使用
         app_state.runtime = Some(runtime);
 
+        // 立即启动版本列表刷新
+        app_state.refresh_available_versions();
+
         Self {
             state: app_state,
         }
@@ -42,6 +45,9 @@ impl App for GodotHubApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         // 应用主题
         apply_theme(ctx, self.state.config.theme);
+
+        // 检查并处理版本刷新结果
+        self.state.poll_refresh_result();
 
         // 更新下载进度（模拟）
         for (_version, progress) in &mut self.state.downloads_in_progress {

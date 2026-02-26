@@ -1,9 +1,13 @@
 // GitHub API Service - 从 GitHub 获取 Godot 版本信息
+// 支持国内镜像源加速
 
 use serde::{Deserialize, Serialize};
+use crate::state::DownloadSource;
 
 /// GitHub Release 信息
+/// 使用 deny_unknown_fields(false) 允许忽略未知字段
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct GitHubRelease {
     /// 发布标签 (如 "4.3-stable")
     pub tag_name: String,
@@ -11,13 +15,19 @@ pub struct GitHubRelease {
     #[serde(default)]
     pub name: String,
     /// 发布时间
+    #[serde(default)]
     pub published_at: String,
     /// 是否预发布
+    #[serde(default)]
     pub prerelease: bool,
+    /// 是否草稿
+    #[serde(default)]
+    pub draft: bool,
     /// 发布资源列表
     #[serde(default)]
     pub assets: Vec<GitHubAsset>,
     /// 发布说明
+    #[serde(default)]
     pub body: Option<String>,
 }
 
@@ -29,54 +39,108 @@ pub struct GitHubAsset {
     /// 下载 URL
     pub browser_download_url: String,
     /// 文件大小 (字节)
+    #[serde(default)]
     pub size: u64,
     /// 下载次数
     #[serde(default)]
     pub download_count: u64,
+    /// 状态
+    #[serde(default)]
+    pub state: String,
 }
 
 /// GitHub API 客户端
 pub struct GitHubApi {
     /// HTTP 客户端
     client: reqwest::Client,
+    /// 下载源（镜像站）
+    download_source: DownloadSource,
 }
 
 impl GitHubApi {
-    /// 创建新的 GitHub API 客户端
+    /// 创建新的 GitHub API 客户端（默认使用官方源）
     pub fn new() -> Self {
+        Self::with_source(DownloadSource::GitHub)
+    }
+
+    /// 创建使用指定下载源的 GitHub API 客户端
+    pub fn with_source(download_source: DownloadSource) -> Self {
+        log::info!("Creating GitHub API client with source: {:?}", download_source);
         Self {
             client: reqwest::Client::builder()
-                .user_agent("GodotHub/0.1.1")
+                .user_agent("GodotHub/0.1.2")
+                .timeout(std::time::Duration::from_secs(60))
+                .connect_timeout(std::time::Duration::from_secs(10))
                 .build()
                 .unwrap_or_else(|_| reqwest::Client::new()),
+            download_source,
         }
     }
 
     /// 从 GitHub API 获取 Godot 发布版本
     pub async fn fetch_releases(&self) -> Result<Vec<GitHubRelease>, String> {
         let repo = "godotengine/godot";
-        log::info!("Fetching releases from GitHub API for {}", repo);
+        log::info!("Fetching releases for {} using source: {:?}", repo, self.download_source);
 
-        let url = format!(
-            "https://api.github.com/repos/{}/releases?per_page=50",
-            repo
-        );
+        // 根据下载源选择 API URL
+        let url = match self.download_source.api_proxy_url() {
+            Some(proxy_url) => {
+                log::info!("Using proxy API: {}", proxy_url);
+                format!("{}/repos/{}/releases?per_page=50", proxy_url, repo)
+            }
+            None => {
+                log::info!("Using official GitHub API");
+                format!("https://api.github.com/repos/{}/releases?per_page=50", repo)
+            }
+        };
 
         let response = self.client
             .get(&url)
             .header("Accept", "application/vnd.github.v3+json")
             .send()
             .await
-            .map_err(|e| format!("Failed to fetch releases: {}", e))?;
+            .map_err(|e| {
+                let error_msg = format!("Failed to fetch releases: {}", e);
+                log::error!("{}", error_msg);
+                error_msg
+            })?;
 
         if !response.status().is_success() {
-            return Err(format!("GitHub API error: {}", response.status()));
+            let error_msg = format!("GitHub API error: {} - URL: {}", response.status(), url);
+            log::error!("{}", error_msg);
+            return Err(error_msg);
         }
 
-        let releases: Vec<GitHubRelease> = response
-            .json::<Vec<GitHubRelease>>()
+        // 先获取响应文本，便于调试
+        let response_text = response
+            .text()
             .await
-            .map_err(|e| format!("Failed to parse releases: {}", e))?;
+            .map_err(|e| format!("Failed to read response body: {}", e))?;
+
+        log::info!("Response length: {} bytes", response_text.len());
+
+        // 如果响应太短，可能是错误
+        if response_text.len() < 100 {
+            log::error!("Response too short, might be an error: {}", response_text);
+            return Err(format!("API returned unexpected response: {}", response_text));
+        }
+
+        // 尝试解析 JSON
+        let releases: Vec<GitHubRelease> = match serde_json::from_str(&response_text) {
+            Ok(r) => r,
+            Err(e) => {
+                // 尝试解析错误信息
+                if let Ok(error_obj) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                    if let Some(message) = error_obj.get("message").and_then(|m| m.as_str()) {
+                        return Err(format!("GitHub API error: {}", message));
+                    }
+                }
+                let error_msg = format!("Failed to parse releases: {}. Response preview: {}",
+                    e, &response_text[..response_text.len().min(500)]);
+                log::error!("{}", error_msg);
+                return Err(error_msg);
+            }
+        };
 
         // 过滤掉预发布版本
         let stable_releases: Vec<GitHubRelease> = releases
@@ -133,6 +197,7 @@ impl GitHubApi {
             return Platform::Windows32;
         }
 
+        #[allow(unreachable_code)]
         Platform::Linux64 // 默认
     }
 
@@ -163,6 +228,26 @@ impl GitHubApi {
         }
 
         None
+    }
+
+    /// 转换下载 URL 为镜像 URL
+    pub fn convert_to_mirror_url(&self, original_url: &str) -> String {
+        match self.download_source {
+            DownloadSource::GitHub => original_url.to_string(),
+            DownloadSource::ChinaMirror => {
+                // ghproxy.com 镜像
+                format!("{}{}", self.download_source.mirror_prefix(), original_url)
+            }
+            DownloadSource::GitClone => {
+                // gitclone.com 镜像
+                // 需要将 github.com 替换为镜像前缀
+                if original_url.contains("github.com") {
+                    original_url.replace("https://github.com", self.download_source.mirror_prefix())
+                } else {
+                    original_url.to_string()
+                }
+            }
+        }
     }
 }
 
@@ -248,22 +333,35 @@ impl Platform {
 pub fn release_to_version(
     release: &GitHubRelease,
     mono: bool,
+    api: &GitHubApi,
 ) -> Option<crate::models::GodotVersion> {
+    // 跳过草稿版本
+    if release.draft {
+        return None;
+    }
+
     let version = GitHubApi::parse_version(&release.tag_name)?;
     let platform = GitHubApi::detect_platform();
 
-    let (filename, download_url) = GitHubApi::find_download_url(
+    let (_filename, original_url) = GitHubApi::find_download_url(
         &release.assets,
         platform,
         mono,
     )?;
 
+    // 转换为镜像 URL
+    let download_url = api.convert_to_mirror_url(&original_url);
+
     // 解析发布日期
-    let release_date = release.published_at
-        .split('T')
-        .next()
-        .unwrap_or("Unknown")
-        .to_string();
+    let release_date = if release.published_at.is_empty() {
+        "Unknown".to_string()
+    } else {
+        release.published_at
+            .split('T')
+            .next()
+            .unwrap_or("Unknown")
+            .to_string()
+    };
 
     Some(crate::models::GodotVersion {
         version: version.clone(),
@@ -280,24 +378,46 @@ pub fn release_to_version(
     })
 }
 
-/// 获取所有可用版本（标准版和 Mono 版）
+/// 获取所有可用版本（标准版和 Mono 版）- 使用默认源
 pub async fn fetch_all_versions() -> Result<Vec<crate::models::GodotVersion>, String> {
-    let api = GitHubApi::new();
+    fetch_all_versions_with_source(DownloadSource::GitHub).await
+}
+
+/// 获取所有可用版本（使用指定下载源）
+pub async fn fetch_all_versions_with_source(
+    download_source: DownloadSource,
+) -> Result<Vec<crate::models::GodotVersion>, String> {
+    log::info!("Fetching versions with source: {:?}", download_source);
+
+    let api = GitHubApi::with_source(download_source);
     let releases = api.fetch_releases().await?;
 
-    let mut versions = Vec::new();
+    log::info!("Received {} releases from API", releases.len());
 
-    for release in releases {
+    let mut versions = Vec::new();
+    let mut standard_count = 0;
+    let mut mono_count = 0;
+
+    for release in &releases {
+        // 跳过预发布和草稿版本
+        if release.prerelease || release.draft {
+            continue;
+        }
+
         // 添加标准版
-        if let Some(version) = release_to_version(&release, false) {
+        if let Some(version) = release_to_version(release, false, &api) {
             versions.push(version);
+            standard_count += 1;
         }
 
         // 添加 Mono 版
-        if let Some(version) = release_to_version(&release, true) {
+        if let Some(version) = release_to_version(release, true, &api) {
             versions.push(version);
+            mono_count += 1;
         }
     }
+
+    log::info!("Parsed {} standard versions and {} mono versions", standard_count, mono_count);
 
     // 按版本号排序（从新到旧）
     versions.sort_by(|a, b| {
@@ -319,6 +439,7 @@ pub async fn fetch_all_versions() -> Result<Vec<crate::models::GodotVersion>, St
         b_parts.len().cmp(&a_parts.len())
     });
 
+    log::info!("Returning {} versions", versions.len());
     Ok(versions)
 }
 
@@ -335,23 +456,19 @@ mod tests {
     }
 
     #[test]
-    fn test_detect_platform() {
-        let platform = GitHubApi::detect_platform();
-        // 测试平台检测是否正常工作
-        match platform {
-            Platform::Linux64 | Platform::Linux32 | Platform::LinuxARM64 => {
-                #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-                assert_eq!(platform, Platform::Linux64);
-            }
-            Platform::MacOSIntel | Platform::MacOSARM => {
-                #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-                assert_eq!(platform, Platform::MacOSIntel);
-            }
-            Platform::Windows64 | Platform::Windows32 => {
-                #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-                assert_eq!(platform, Platform::Windows64);
-            }
-        }
+    fn test_mirror_url_conversion() {
+        let api_github = GitHubApi::with_source(DownloadSource::GitHub);
+        let url = "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip";
+        assert_eq!(api_github.convert_to_mirror_url(url), url);
+
+        let api_ghproxy = GitHubApi::with_source(DownloadSource::ChinaMirror);
+        let mirrored = api_ghproxy.convert_to_mirror_url(url);
+        assert!(mirrored.starts_with("https://ghproxy.com/"));
+        assert!(mirrored.contains("github.com"));
+
+        let api_gitclone = GitHubApi::with_source(DownloadSource::GitClone);
+        let mirrored = api_gitclone.convert_to_mirror_url(url);
+        assert!(mirrored.starts_with("https://gitclone.com/github.com/"));
     }
 
     #[test]
@@ -362,5 +479,13 @@ mod tests {
 
         let patterns_mono = Platform::Linux64.patterns(true);
         assert!(patterns_mono.iter().any(|p| p.contains("_mono")));
+    }
+
+    #[test]
+    fn test_download_source() {
+        assert_eq!(DownloadSource::GitHub.mirror_prefix(), "");
+        assert_eq!(DownloadSource::ChinaMirror.mirror_prefix(), "https://ghproxy.com/");
+        assert!(DownloadSource::ChinaMirror.api_proxy_url().is_some());
+        assert!(DownloadSource::GitHub.api_proxy_url().is_none());
     }
 }

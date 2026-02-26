@@ -1,12 +1,13 @@
 // AppState 实现方法
 
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 
 use crate::models::{GodotInstall, GodotVariant, GodotVersion};
-use super::AppState;
+use super::{AppState, RefreshResult};
 
 /// 检测当前平台
-fn detect_platform() -> String {
+pub fn detect_platform() -> String {
     #[cfg(target_os = "linux")]
     {
         #[cfg(target_arch = "x86_64")]
@@ -36,179 +37,7 @@ fn detect_platform() -> String {
     "Unknown".to_string()
 }
 
-/// 根据平台和版本格式化下载 URL
-fn format_platform_url(version: &str, _release_type: &str, variant: GodotVariant) -> String {
-    let variant_str = match variant {
-        GodotVariant::Mono => "_mono",
-        _ => "",
-    };
-
-    #[cfg(target_os = "linux")]
-    {
-        #[cfg(target_arch = "x86_64")]
-        return format!(
-            "https://github.com/godotengine/godot/releases/download/{}-stable/Godot_v{}-stable{}_linux.x86_64.zip",
-            version, version, variant_str
-        );
-        #[cfg(target_arch = "x86")]
-        return format!(
-            "https://github.com/godotengine/godot/releases/download/{}-stable/Godot_v{}-stable{}_linux.x86_32.zip",
-            version, version, variant_str
-        );
-        #[cfg(target_arch = "aarch64")]
-        return format!(
-            "https://github.com/godotengine/godot/releases/download/{}-stable/Godot_v{}-stable{}_linux.arm64.zip",
-            version, version, variant_str
-        );
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        #[cfg(target_arch = "x86_64")]
-        return format!(
-            "https://github.com/godotengine/godot/releases/download/{}-stable/Godot_v{}-stable{}_macos.universal.zip",
-            version, version, variant_str
-        );
-        #[cfg(target_arch = "aarch64")]
-        return format!(
-            "https://github.com/godotengine/godot/releases/download/{}-stable/Godot_v{}-stable{}_macos.universal.zip",
-            version, version, variant_str
-        );
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        #[cfg(target_arch = "x86_64")]
-        return format!(
-            "https://github.com/godotengine/godot/releases/download/{}-stable/Godot_v{}-stable{}_win64.exe.zip",
-            version, version, variant_str
-        );
-        #[cfg(target_arch = "x86")]
-        return format!(
-            "https://github.com/godotengine/godot/releases/download/{}-stable/Godot_v{}-stable{}_win32.exe.zip",
-            version, version, variant_str
-        );
-    }
-
-    // 默认返回 Linux x86_64
-    format!(
-        "https://github.com/godotengine/godot/releases/download/{}-stable/Godot_v{}-stable{}_linux.x86_64.zip",
-        version, version, variant_str
-    )
-}
-
 impl AppState {
-    /// 获取可用的 Godot 版本列表（更新到最新版本）
-    pub fn fetch_available_versions() -> Vec<GodotVersion> {
-        vec![
-            // Godot 4.6 - Latest
-            GodotVersion {
-                version: "4.6".to_string(),
-                variant: GodotVariant::Standard,
-                platform: detect_platform(),
-                download_url: format_platform_url("4.6", "stable", GodotVariant::Standard),
-                release_date: "2025-01-16".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            GodotVersion {
-                version: "4.6".to_string(),
-                variant: GodotVariant::Mono,
-                platform: detect_platform(),
-                download_url: format_platform_url("4.6", "stable", GodotVariant::Mono),
-                release_date: "2025-01-16".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            // Godot 4.5
-            GodotVersion {
-                version: "4.5".to_string(),
-                variant: GodotVariant::Standard,
-                platform: detect_platform(),
-                download_url: format_platform_url("4.5", "stable", GodotVariant::Standard),
-                release_date: "2024-11-15".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            GodotVersion {
-                version: "4.5".to_string(),
-                variant: GodotVariant::Mono,
-                platform: detect_platform(),
-                download_url: format_platform_url("4.5", "stable", GodotVariant::Mono),
-                release_date: "2024-11-15".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            // Godot 4.4
-            GodotVersion {
-                version: "4.4".to_string(),
-                variant: GodotVariant::Standard,
-                platform: detect_platform(),
-                download_url: format_platform_url("4.4", "stable", GodotVariant::Standard),
-                release_date: "2024-10-08".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            GodotVersion {
-                version: "4.4".to_string(),
-                variant: GodotVariant::Mono,
-                platform: detect_platform(),
-                download_url: format_platform_url("4.4", "stable", GodotVariant::Mono),
-                release_date: "2024-10-08".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            // Godot 4.3
-            GodotVersion {
-                version: "4.3".to_string(),
-                variant: GodotVariant::Standard,
-                platform: detect_platform(),
-                download_url: format_platform_url("4.3", "stable", GodotVariant::Standard),
-                release_date: "2024-09-20".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            GodotVersion {
-                version: "4.3".to_string(),
-                variant: GodotVariant::Mono,
-                platform: detect_platform(),
-                download_url: format_platform_url("4.3", "stable", GodotVariant::Mono),
-                release_date: "2024-09-20".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            // Godot 4.2.2
-            GodotVersion {
-                version: "4.2.2".to_string(),
-                variant: GodotVariant::Standard,
-                platform: detect_platform(),
-                download_url: format_platform_url("4.2.2", "stable", GodotVariant::Standard),
-                release_date: "2024-02-03".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            // Godot 3.5.3 - LTS
-            GodotVersion {
-                version: "3.5.3".to_string(),
-                variant: GodotVariant::Standard,
-                platform: detect_platform(),
-                download_url: format_platform_url("3.5.3", "stable", GodotVariant::Standard),
-                release_date: "2023-09-11".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-            GodotVersion {
-                version: "3.5.3".to_string(),
-                variant: GodotVariant::Mono,
-                platform: detect_platform(),
-                download_url: format_platform_url("3.5.3", "stable", GodotVariant::Mono),
-                release_date: "2023-09-11".to_string(),
-                is_installed: false,
-                install_path: None,
-            },
-        ]
-    }
-
     /// 从磁盘加载已安装的版本
     pub fn load_installed_versions(&mut self) {
         let versions_dir = &self.config.install_dir;
@@ -242,10 +71,22 @@ impl AppState {
         }
 
         // 更新可用版本的安装状态
+        self.update_install_status();
+    }
+
+    /// 更新可用版本的安装状态
+    pub fn update_install_status(&mut self) {
         for available in &mut self.available_versions {
             available.is_installed = self.installed_versions.iter().any(|installed| {
                 installed.version == available.version && installed.variant == available.variant
             });
+            if available.is_installed {
+                if let Some(installed) = self.installed_versions.iter()
+                    .find(|i| i.version == available.version && i.variant == available.variant)
+                {
+                    available.install_path = Some(installed.path.clone());
+                }
+            }
         }
     }
 
@@ -342,5 +183,118 @@ impl AppState {
     /// 切换标签页
     pub fn switch_tab(&mut self, tab: super::MainTab) {
         self.current_tab = tab;
+    }
+
+    /// 异步刷新可用版本列表
+    /// 将结果接收器存储在 state 中，由 UI 层定期检查
+    pub fn refresh_available_versions(&mut self) {
+        // 如果已经在刷新，则直接返回
+        if self.version_refresh_state.is_refreshing {
+            log::warn!("Version refresh already in progress");
+            return;
+        }
+
+        let runtime = match self.runtime.as_ref() {
+            Some(r) => r.clone(),
+            None => {
+                log::error!("No runtime available for version refresh");
+                return;
+            }
+        };
+
+        // 获取下载源配置
+        let download_source = self.config.download_source;
+
+        // 设置刷新状态
+        self.version_refresh_state.is_refreshing = true;
+        self.version_refresh_state.last_error = None;
+
+        // 创建通道
+        let (tx, rx) = mpsc::channel();
+        self.refresh_receiver = Some(rx);
+
+        // 启动异步任务
+        runtime.spawn(async move {
+            log::info!("Starting async version refresh from API (source: {:?})...", download_source);
+
+            let result = crate::services::fetch_all_versions_with_source(download_source).await;
+
+            match &result {
+                Ok(versions) => {
+                    log::info!("Successfully fetched {} versions", versions.len());
+                }
+                Err(e) => {
+                    log::error!("Failed to fetch versions: {}", e);
+                }
+            }
+
+            // 发送结果
+            if let Err(e) = tx.send(RefreshResult { versions: result }) {
+                log::error!("Failed to send refresh result: {}", e);
+            }
+        });
+    }
+
+    /// 检查并处理刷新结果
+    /// 应在每帧调用
+    pub fn poll_refresh_result(&mut self) {
+        if let Some(ref receiver) = self.refresh_receiver {
+            if let Ok(result) = receiver.try_recv() {
+                self.handle_refresh_result(result);
+                self.refresh_receiver = None;
+            }
+        }
+    }
+
+    /// 处理刷新结果
+    pub fn handle_refresh_result(&mut self, result: RefreshResult) {
+        self.version_refresh_state.is_refreshing = false;
+
+        match result.versions {
+            Ok(versions) => {
+                // 更新版本列表
+                self.available_versions = versions;
+                self.version_refresh_state.last_error = None;
+                self.version_refresh_state.last_refresh_time = Some(
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs()
+                );
+
+                // 更新安装状态
+                self.update_install_status();
+
+                log::info!("Version list updated successfully");
+            }
+            Err(e) => {
+                // 网络请求失败，保留错误信息，不使用备用列表
+                log::error!("Failed to fetch version list: {}", e);
+                self.version_refresh_state.last_error = Some(e);
+                // 不修改 available_versions，保持原状（可能为空）
+            }
+        }
+    }
+
+    /// 检查是否需要刷新版本列表（距离上次刷新超过指定秒数）
+    pub fn should_refresh_versions(&self, max_age_secs: u64) -> bool {
+        if self.version_refresh_state.is_refreshing {
+            return false;
+        }
+
+        if self.available_versions.is_empty() {
+            return true;
+        }
+
+        if let Some(last_time) = self.version_refresh_state.last_refresh_time {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+
+            now - last_time > max_age_secs
+        } else {
+            true
+        }
     }
 }

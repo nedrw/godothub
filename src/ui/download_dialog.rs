@@ -32,15 +32,52 @@ fn draw_download_dialog_content(ui: &mut Ui, state: &mut AppState) {
             );
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                // 显示上次刷新时间
+                if let Some(last_time) = state.version_refresh_state.last_refresh_time {
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    let elapsed = now - last_time;
+
+                    let time_text = if elapsed < 60 {
+                        format!("Updated {}s ago", elapsed)
+                    } else if elapsed < 3600 {
+                        format!("Updated {}m ago", elapsed / 60)
+                    } else {
+                        format!("Updated {}h ago", elapsed / 3600)
+                    };
+
+                    ui.label(RichText::new(time_text).small().weak());
+                    ui.add_space(8.0);
+                }
+
                 // 刷新按钮
-                let refresh_btn = egui::Button::new("🔄")
+                let refresh_text = if state.version_refresh_state.is_refreshing {
+                    "⏳"
+                } else {
+                    "🔄"
+                };
+
+                let refresh_btn = egui::Button::new(refresh_text)
                     .fill(Color32::TRANSPARENT);
 
-                let mut response = ui.add(refresh_btn);
-                let response = response.on_hover_text("Refresh version list");
+                let response = ui.add_enabled(
+                    !state.version_refresh_state.is_refreshing,
+                    refresh_btn
+                );
+                let response = response.on_hover_text(
+                    if state.version_refresh_state.is_refreshing {
+                        "Refreshing..."
+                    } else {
+                        "Refresh version list from GitHub"
+                    }
+                );
 
                 if response.clicked() {
                     log::info!("Refresh version list requested");
+                    // 启动异步刷新
+                    state.refresh_available_versions();
                 }
             });
         });
@@ -149,7 +186,55 @@ fn draw_download_queue_status(ui: &mut Ui, state: &mut AppState) {
 
 /// 绘制版本分组
 fn draw_version_groups(ui: &mut Ui, state: &mut AppState) {
+    // 如果正在刷新，显示加载指示器
+    if state.version_refresh_state.is_refreshing {
+        ui.vertical_centered(|ui| {
+            ui.add_space(40.0);
+            ui.spinner();
+            ui.add_space(16.0);
+            ui.label(RichText::new("Fetching versions from GitHub...").weak());
+            ui.add_space(40.0);
+        });
+        return;
+    }
+
+    // 显示错误信息（如果有）
+    if let Some(ref error) = state.version_refresh_state.last_error {
+        egui::Frame::group(ui.style())
+            .inner_margin(10.0)
+            .corner_radius(6.0)
+            .fill(Color32::from_rgba_unmultiplied(220, 53, 69, 30))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("⚠️").size(16.0));
+                    ui.vertical(|ui| {
+                        ui.label(RichText::new("Failed to fetch version list").strong());
+                        ui.label(RichText::new(error).small().weak());
+                    });
+                });
+            });
+        ui.add_space(8.0);
+    }
+
     let versions: Vec<GodotVersion> = state.available_versions.clone();
+
+    // 如果版本列表为空
+    if versions.is_empty() {
+        ui.vertical_centered(|ui| {
+            ui.add_space(40.0);
+            ui.label(RichText::new("No versions available").weak());
+            ui.add_space(8.0);
+
+            let retry_btn = egui::Button::new("🔄 Retry")
+                .fill(Color32::from_rgb(70, 130, 180));
+
+            if ui.add(retry_btn).clicked() {
+                state.refresh_available_versions();
+            }
+            ui.add_space(40.0);
+        });
+        return;
+    }
 
     // 统计各分组数量
     let godot4_count = versions.iter().filter(|v| v.version.starts_with('4') && !v.is_installed).count();

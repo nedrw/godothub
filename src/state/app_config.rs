@@ -16,6 +16,52 @@ pub enum Theme {
     System,
 }
 
+/// 下载源（镜像站）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum DownloadSource {
+    /// GitHub 官方源
+    #[default]
+    GitHub,
+    /// 国内镜像源 (ghproxy.com)
+    ChinaMirror,
+    /// 国内镜像源 (gitclone.com)
+    GitClone,
+}
+
+impl DownloadSource {
+    /// 获取显示名称
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            DownloadSource::GitHub => "GitHub (Official)",
+            DownloadSource::ChinaMirror => "GitHub Mirror (ghproxy.com)",
+            DownloadSource::GitClone => "GitClone Mirror (gitclone.com)",
+        }
+    }
+
+    /// 获取镜像URL前缀
+    pub fn mirror_prefix(&self) -> &'static str {
+        match self {
+            DownloadSource::GitHub => "",
+            DownloadSource::ChinaMirror => "https://ghproxy.com/",
+            DownloadSource::GitClone => "https://gitclone.com/github.com/",
+        }
+    }
+
+    /// 获取 GitHub API 代理URL
+    pub fn api_proxy_url(&self) -> Option<&'static str> {
+        match self {
+            DownloadSource::GitHub => None,
+            DownloadSource::ChinaMirror => Some("https://ghproxy.com/https://api.github.com"),
+            DownloadSource::GitClone => Some("https://gitclone.com/github.com/api.github.com"),
+        }
+    }
+
+    /// 是否需要代理
+    pub fn needs_proxy(&self) -> bool {
+        !matches!(self, DownloadSource::GitHub)
+    }
+}
+
 impl Theme {
     /// 获取主题名称
     pub fn name(&self) -> &'static str {
@@ -48,6 +94,9 @@ pub struct AppConfig {
     /// 应用主题
     #[serde(default)]
     pub theme: Theme,
+    /// 下载源（镜像站）
+    #[serde(default)]
+    pub download_source: DownloadSource,
 }
 
 impl Default for AppConfig {
@@ -60,18 +109,20 @@ impl Default for AppConfig {
             projects_dir: home_dir.join("Godot"),
             check_updates_on_start: true,
             theme: Theme::default(),
+            download_source: DownloadSource::default(),
         }
     }
 }
 
 impl AppConfig {
     /// 创建自定义配置
-    pub fn new(install_dir: PathBuf, projects_dir: PathBuf, check_updates_on_start: bool, theme: Theme) -> Self {
+    pub fn new(install_dir: PathBuf, projects_dir: PathBuf, check_updates_on_start: bool, theme: Theme, download_source: DownloadSource) -> Self {
         Self {
             install_dir,
             projects_dir,
             check_updates_on_start,
             theme,
+            download_source,
         }
     }
 

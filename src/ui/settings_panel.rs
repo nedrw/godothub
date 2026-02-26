@@ -3,7 +3,7 @@
 
 use egui::{Color32, RichText, ScrollArea, Stroke, Vec2};
 
-use crate::state::{AppState, Theme};
+use crate::state::{AppState, Theme, DownloadSource};
 
 /// 绘制设置面板
 pub fn draw_settings_panel(ui: &mut egui::Ui, state: &mut AppState) {
@@ -323,6 +323,97 @@ fn draw_behavior_settings(ui: &mut egui::Ui, state: &mut AppState) {
 
             ui.label(
                 RichText::new("Choose your preferred color theme")
+                    .small()
+                    .weak()
+            );
+        });
+
+        ui.add_space(16.0);
+        ui.separator();
+        ui.add_space(16.0);
+
+        // 下载源选择
+        ui.vertical(|ui| {
+            ui.label(
+                RichText::new("Download Source")
+                    .strong()
+            );
+
+            ui.add_space(8.0);
+
+            ui.horizontal(|ui| {
+                // GitHub 官方源
+                let is_github = state.config.download_source == DownloadSource::GitHub;
+                let github_btn = egui::Button::new("🌍 GitHub")
+                    .fill(if is_github {
+                        Color32::from_rgb(70, 130, 180)
+                    } else {
+                        Color32::from_rgba_unmultiplied(128, 128, 128, 30)
+                    })
+                    .min_size(Vec2::new(100.0, 28.0));
+
+                let mut response = ui.add(github_btn);
+                response = response.on_hover_text("Download from GitHub directly (slow in China)");
+
+                if response.clicked() {
+                    state.config.download_source = DownloadSource::GitHub;
+                    if let Err(e) = state.config.save() {
+                        log::error!("Failed to save download source setting: {}", e);
+                    }
+                    log::info!("Download source changed to GitHub");
+                }
+
+                ui.add_space(8.0);
+
+                // ghproxy.com 镜像
+                let is_ghproxy = state.config.download_source == DownloadSource::ChinaMirror;
+                let ghproxy_btn = egui::Button::new("🇨🇳 ghproxy.com")
+                    .fill(if is_ghproxy {
+                        Color32::from_rgb(70, 130, 180)
+                    } else {
+                        Color32::from_rgba_unmultiplied(128, 128, 128, 30)
+                    })
+                    .min_size(Vec2::new(100.0, 28.0));
+
+                let mut response = ui.add(ghproxy_btn);
+                response = response.on_hover_text("Use ghproxy.com mirror (Recommended for users in China)");
+
+                if response.clicked() {
+                    state.config.download_source = DownloadSource::ChinaMirror;
+                    if let Err(e) = state.config.save() {
+                        log::error!("Failed to save download source setting: {}", e);
+                    }
+                    log::info!("Download source changed to ghproxy.com mirror");
+                }
+
+                ui.add_space(8.0);
+
+                // gitclone.com 镜像
+                let is_gitclone = state.config.download_source == DownloadSource::GitClone;
+                let gitclone_btn = egui::Button::new("🇨🇳 gitclone.com")
+                    .fill(if is_gitclone {
+                        Color32::from_rgb(70, 130, 180)
+                    } else {
+                        Color32::from_rgba_unmultiplied(128, 128, 128, 30)
+                    })
+                    .min_size(Vec2::new(100.0, 28.0));
+
+                let mut response = ui.add(gitclone_btn);
+                response = response.on_hover_text("Use gitclone.com mirror (Alternative for users in China)");
+
+                if response.clicked() {
+                    state.config.download_source = DownloadSource::GitClone;
+                    if let Err(e) = state.config.save() {
+                        log::error!("Failed to save download source setting: {}", e);
+                    }
+                    log::info!("Download source changed to gitclone.com mirror");
+                }
+            });
+
+            ui.add_space(4.0);
+
+            ui.label(
+                RichText::new("Select download source for Godot releases (requires restart for API)")
                     .small()
                     .weak()
             );
