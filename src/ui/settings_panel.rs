@@ -3,7 +3,7 @@
 
 use egui::{Color32, RichText, ScrollArea, Stroke, Vec2};
 
-use crate::state::AppState;
+use crate::state::{AppState, Theme};
 
 /// 绘制设置面板
 pub fn draw_settings_panel(ui: &mut egui::Ui, state: &mut AppState) {
@@ -50,8 +50,25 @@ fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState) {
         });
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            // 保存按钮
+            let save_btn = egui::Button::new("💾 Save")
+                .fill(Color32::from_rgb(46, 139, 87));
+
+            let mut response = ui.add(save_btn);
+            response = response.on_hover_text("Save current settings");
+
+            if response.clicked() {
+                if let Err(e) = state.config.save() {
+                    log::error!("Failed to save settings: {}", e);
+                } else {
+                    log::info!("Settings saved successfully");
+                }
+            }
+
+            ui.add_space(8.0);
+
             // 重置按钮
-            let reset_btn = egui::Button::new("🔄 Reset to Defaults")
+            let reset_btn = egui::Button::new("🔄 Reset")
                 .fill(Color32::from_rgb(220, 53, 69));
 
             let mut response = ui.add(reset_btn);
@@ -91,14 +108,23 @@ fn draw_directory_settings(ui: &mut egui::Ui, state: &mut AppState) {
 
             ui.horizontal(|ui| {
                 let mut path_str = state.config.install_dir.display().to_string();
-                ui.add_sized(
+                let response = ui.add_sized(
                     [ui.available_width() - 90.0, 24.0],
                     egui::TextEdit::singleline(&mut path_str)
                 );
 
+                if response.changed() {
+                    state.config.install_dir = std::path::PathBuf::from(path_str);
+                }
+
                 if ui.button("Browse").clicked() {
-                    // TODO: 实现文件对话框
-                    log::info!("Browse install directory clicked");
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_title("Select Installation Directory")
+                        .pick_folder()
+                    {
+                        state.config.install_dir = path;
+                        log::info!("Selected install directory: {:?}", state.config.install_dir);
+                    }
                 }
             });
 
@@ -138,14 +164,23 @@ fn draw_directory_settings(ui: &mut egui::Ui, state: &mut AppState) {
 
             ui.horizontal(|ui| {
                 let mut path_str = state.config.projects_dir.display().to_string();
-                ui.add_sized(
+                let response = ui.add_sized(
                     [ui.available_width() - 90.0, 24.0],
                     egui::TextEdit::singleline(&mut path_str)
                 );
 
+                if response.changed() {
+                    state.config.projects_dir = std::path::PathBuf::from(path_str);
+                }
+
                 if ui.button("Browse").clicked() {
-                    // TODO: 实现文件对话框
-                    log::info!("Browse projects directory clicked");
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_title("Select Projects Directory")
+                        .pick_folder()
+                    {
+                        state.config.projects_dir = path;
+                        log::info!("Selected projects directory: {:?}", state.config.projects_dir);
+                    }
                 }
             });
 
@@ -206,7 +241,7 @@ fn draw_behavior_settings(ui: &mut egui::Ui, state: &mut AppState) {
         ui.separator();
         ui.add_space(16.0);
 
-        // 主题选择（占位）
+        // 主题选择
         ui.vertical(|ui| {
             ui.label(
                 RichText::new("Theme")
@@ -216,29 +251,78 @@ fn draw_behavior_settings(ui: &mut egui::Ui, state: &mut AppState) {
             ui.add_space(8.0);
 
             ui.horizontal(|ui| {
+                // Dark 主题按钮
+                let is_dark = state.config.theme == Theme::Dark;
                 let dark_btn = egui::Button::new("🌙 Dark")
-                    .fill(Color32::from_rgb(70, 130, 180))
+                    .fill(if is_dark {
+                        Color32::from_rgb(70, 130, 180)
+                    } else {
+                        Color32::from_rgba_unmultiplied(128, 128, 128, 30)
+                    })
                     .min_size(Vec2::new(80.0, 28.0));
 
+                let mut response = ui.add(dark_btn);
+                response = response.on_hover_text("Use dark theme");
+
+                if response.clicked() {
+                    state.config.theme = Theme::Dark;
+                    if let Err(e) = state.config.save() {
+                        log::error!("Failed to save theme setting: {}", e);
+                    }
+                    log::info!("Theme changed to Dark");
+                }
+
+                ui.add_space(8.0);
+
+                // Light 主题按钮
+                let is_light = state.config.theme == Theme::Light;
                 let light_btn = egui::Button::new("☀️ Light")
-                    .fill(Color32::from_rgba_unmultiplied(128, 128, 128, 30))
+                    .fill(if is_light {
+                        Color32::from_rgb(70, 130, 180)
+                    } else {
+                        Color32::from_rgba_unmultiplied(128, 128, 128, 30)
+                    })
                     .min_size(Vec2::new(80.0, 28.0));
 
+                let mut response = ui.add(light_btn);
+                response = response.on_hover_text("Use light theme");
+
+                if response.clicked() {
+                    state.config.theme = Theme::Light;
+                    if let Err(e) = state.config.save() {
+                        log::error!("Failed to save theme setting: {}", e);
+                    }
+                    log::info!("Theme changed to Light");
+                }
+
+                ui.add_space(8.0);
+
+                // System 主题按钮
+                let is_system = state.config.theme == Theme::System;
                 let system_btn = egui::Button::new("💻 System")
-                    .fill(Color32::from_rgba_unmultiplied(128, 128, 128, 30))
+                    .fill(if is_system {
+                        Color32::from_rgb(70, 130, 180)
+                    } else {
+                        Color32::from_rgba_unmultiplied(128, 128, 128, 30)
+                    })
                     .min_size(Vec2::new(80.0, 28.0));
 
-                ui.add(dark_btn);
-                ui.add_space(8.0);
-                ui.add(light_btn);
-                ui.add_space(8.0);
-                ui.add(system_btn);
+                let mut response = ui.add(system_btn);
+                response = response.on_hover_text("Follow system theme");
+
+                if response.clicked() {
+                    state.config.theme = Theme::System;
+                    if let Err(e) = state.config.save() {
+                        log::error!("Failed to save theme setting: {}", e);
+                    }
+                    log::info!("Theme changed to System");
+                }
             });
 
             ui.add_space(4.0);
 
             ui.label(
-                RichText::new("Choose your preferred color theme (coming soon)")
+                RichText::new("Choose your preferred color theme")
                     .small()
                     .weak()
             );

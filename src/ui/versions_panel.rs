@@ -450,7 +450,9 @@ fn draw_available_version_card(ui: &mut egui::Ui, version: &GodotVersion, state:
                         ));
 
                         if response.clicked() {
-                            services::start_download(version, state);
+                            if let Some(runtime) = &state.runtime {
+                                services::start_download(version, state, runtime.clone());
+                            }
                         }
                     }
                 });

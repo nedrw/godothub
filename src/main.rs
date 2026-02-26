@@ -8,7 +8,10 @@ mod ui;
 mod utils;
 
 use eframe::{egui, App, Frame, NativeOptions};
+use std::sync::Arc;
 use std::time::Duration;
+use state::Theme;
+use tokio::runtime::Runtime;
 
 /// 主应用程序
 struct GodotHubApp {
@@ -17,15 +20,29 @@ struct GodotHubApp {
 
 impl Default for GodotHubApp {
     fn default() -> Self {
+        // 创建 Tokio 运行时
+        let runtime = Arc::new(
+            Runtime::new()
+                .expect("Failed to create Tokio runtime")
+        );
+
         let mut app_state = state::AppState::default();
         app_state.load_installed_versions();
 
-        Self { state: app_state }
+        // 将运行时设置到 state 中，供下载等功能使用
+        app_state.runtime = Some(runtime);
+
+        Self {
+            state: app_state,
+        }
     }
 }
 
 impl App for GodotHubApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
+        // 应用主题
+        apply_theme(ctx, self.state.config.theme);
+
         // 更新下载进度（模拟）
         for (_version, progress) in &mut self.state.downloads_in_progress {
             if *progress < 1.0 {
@@ -60,6 +77,51 @@ impl App for GodotHubApp {
             }
         });
     }
+
+    fn save(&mut self, _storage: &mut dyn eframe::Storage) {
+        // 保存配置
+        if let Err(e) = self.state.config.save() {
+            log::error!("Failed to save config: {}", e);
+        }
+    }
+
+    fn persist_egui_memory(&self) -> bool {
+        true
+    }
+}
+
+/// 应用主题
+fn apply_theme(ctx: &egui::Context, theme: Theme) {
+    let mut style = (*ctx.style()).clone();
+
+    match theme {
+        Theme::Dark => {
+            style.visuals = egui::Visuals::dark();
+            style.visuals.window_fill = egui::Color32::from_rgb(25, 25, 25);
+            style.visuals.panel_fill = egui::Color32::from_rgb(30, 30, 30);
+            style.visuals.extreme_bg_color = egui::Color32::from_rgb(20, 20, 20);
+        }
+        Theme::Light => {
+            style.visuals = egui::Visuals::light();
+            style.visuals.window_fill = egui::Color32::from_rgb(245, 245, 245);
+            style.visuals.panel_fill = egui::Color32::from_rgb(240, 240, 240);
+            style.visuals.extreme_bg_color = egui::Color32::from_rgb(235, 235, 235);
+        }
+        Theme::System => {
+            // 暂时使用深色主题，后续可以通过系统 API 检测
+            style.visuals = egui::Visuals::dark();
+        }
+    }
+
+    // 自定义一些通用样式
+    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
+    style.spacing.button_padding = egui::vec2(8.0, 4.0);
+    style.spacing.interact_size = egui::vec2(40.0, 20.0);
+    style.visuals.button_frame = true;
+    style.visuals.collapsing_header_frame = true;
+    style.visuals.selection.bg_fill = egui::Color32::from_rgb(70, 130, 180);
+
+    ctx.set_style(style);
 }
 
 /// 应用程序入口点
@@ -78,6 +140,7 @@ fn main() -> eframe::Result<()> {
             .with_inner_size([1000.0, 700.0])
             .with_min_inner_size([800.0, 500.0])
             .with_title("Godot Hub"),
+        persist_window: true,
         ..Default::default()
     };
 

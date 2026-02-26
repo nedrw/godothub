@@ -4,6 +4,38 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+/// 应用主题
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum Theme {
+    /// 深色主题
+    #[default]
+    Dark,
+    /// 浅色主题
+    Light,
+    /// 跟随系统
+    System,
+}
+
+impl Theme {
+    /// 获取主题名称
+    pub fn name(&self) -> &'static str {
+        match self {
+            Theme::Dark => "Dark",
+            Theme::Light => "Light",
+            Theme::System => "System",
+        }
+    }
+
+    /// 获取主题图标
+    pub fn icon(&self) -> &'static str {
+        match self {
+            Theme::Dark => "🌙",
+            Theme::Light => "☀️",
+            Theme::System => "💻",
+        }
+    }
+}
+
 /// 应用程序配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -13,6 +45,9 @@ pub struct AppConfig {
     pub projects_dir: PathBuf,
     /// 启动时是否检查更新
     pub check_updates_on_start: bool,
+    /// 应用主题
+    #[serde(default)]
+    pub theme: Theme,
 }
 
 impl Default for AppConfig {
@@ -24,17 +59,19 @@ impl Default for AppConfig {
             install_dir: gdhub_dir.join("versions"),
             projects_dir: home_dir.join("Godot"),
             check_updates_on_start: true,
+            theme: Theme::default(),
         }
     }
 }
 
 impl AppConfig {
     /// 创建自定义配置
-    pub fn new(install_dir: PathBuf, projects_dir: PathBuf, check_updates_on_start: bool) -> Self {
+    pub fn new(install_dir: PathBuf, projects_dir: PathBuf, check_updates_on_start: bool, theme: Theme) -> Self {
         Self {
             install_dir,
             projects_dir,
             check_updates_on_start,
+            theme,
         }
     }
 

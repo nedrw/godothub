@@ -286,8 +286,10 @@ fn draw_download_button(ui: &mut Ui, version: &GodotVersion, state: &mut AppStat
     ));
 
     if response.clicked() {
-        services::start_download(version, state);
-        log::info!("Download started for Godot {}", version.version);
+        if let Some(runtime) = &state.runtime {
+            services::start_download(version, state, runtime.clone());
+            log::info!("Download started for Godot {}", version.version);
+        }
     }
 }
 
@@ -370,7 +372,9 @@ pub fn initiate_download(version: &GodotVersion, state: &mut AppState) {
         AppState::get_variant_name(&version.variant)
     );
 
-    services::start_download(version, state);
+    if let Some(runtime) = &state.runtime {
+        services::start_download(version, state, runtime.clone());
+    }
 }
 
 /// 取消下载（供外部调用）

@@ -1,8 +1,10 @@
 // AppState - 应用程序状态
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use tokio::runtime::Runtime;
 
 use crate::models::{GodotInstall, GodotVariant, GodotVersion};
 
@@ -37,6 +39,9 @@ pub struct AppState {
     pub current_tab: MainTab,
     /// 应用程序配置
     pub config: crate::state::AppConfig,
+    /// Tokio 运行时（不序列化）
+    #[serde(skip)]
+    pub runtime: Option<Arc<Runtime>>,
 }
 
 impl Default for AppState {
@@ -49,6 +54,7 @@ impl Default for AppState {
             show_download_dialog: false,
             current_tab: MainTab::Versions,
             config: crate::state::AppConfig::default(),
+            runtime: None,
         }
     }
 }
