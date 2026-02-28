@@ -5,4 +5,4 @@ pub mod app_state;
 pub mod app_state_impl;
 
 pub use app_config::{AppConfig, DownloadSource, Theme};
-pub use app_state::{AppState, MainTab, VersionRefreshState, RefreshResult};
+pub use app_state::{AppState, MainTab, RefreshResult};

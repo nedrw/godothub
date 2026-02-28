@@ -1,9 +1,12 @@
 // ProjectsPanel - 项目管理面板 UI 组件
-// 优化版本：卡片式布局、统一设计风格、改进交互体验
+// 优化版本：使用统一样式系统、卡片式布局、清晰信息层次
 
-use egui::{Color32, RichText, ScrollArea, Stroke, Vec2};
+use egui::{RichText, ScrollArea, Stroke, Vec2};
 
-use crate::state::AppState;
+use crate::state::{AppState, Theme};
+use crate::ui::style::{colors, spacing, card_frame, section_header, panel_header,
+                       primary_button, success_button, danger_button, badge,
+                       status_pill, path_label};
 
 /// 项目信息结构体
 ///
@@ -52,50 +55,50 @@ impl ProjectInfo {
 
 /// 绘制项目管理面板
 pub fn draw_projects_panel(ui: &mut egui::Ui, state: &mut AppState) {
-    // 顶部标题区域
-    egui::TopBottomPanel::top("projects_header")
-        .frame(egui::Frame::NONE.inner_margin(egui::Margin::same(16)))
+    // 设置面板背景
+    egui::CentralPanel::default()
+        .frame(egui::Frame::NONE.inner_margin(16.0))
         .show_inside(ui, |ui| {
-            draw_panel_header(ui, state);
-        });
-
-    // 主内容区域
-    ScrollArea::vertical()
-        .auto_shrink([false; 2])
-        .show(ui, |ui| {
-            ui.add_space(8.0);
-
-            // 操作按钮区域
-            draw_action_buttons(ui, state);
+            // 顶部标题区域
+            egui::TopBottomPanel::top("projects_header")
+                .frame(egui::Frame::NONE)
+                .show_inside(ui, |ui| {
+                    draw_panel_header(ui, state);
+                });
 
             ui.add_space(16.0);
 
-            // 项目列表
-            draw_projects_list(ui, state);
+            // 主内容区域
+            ScrollArea::vertical()
+                .auto_shrink([false; 2])
+                .show(ui, |ui| {
+                    // 操作按钮区域
+                    draw_action_buttons(ui, state);
 
-            ui.add_space(16.0);
+                    ui.add_space(24.0);
+
+                    // 项目列表
+                    draw_projects_list(ui, state);
+                });
         });
 }
 
 /// 绘制面板头部
 fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState) {
     ui.horizontal(|ui| {
-        ui.vertical(|ui| {
-            ui.heading("Projects");
-            ui.label(
-                RichText::new("Manage your Godot projects")
-                    .small()
-                    .weak()
-            );
-        });
+        panel_header(ui, state.config.theme, "Projects", "Manage your Godot projects");
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // 扫描按钮
-            let scan_btn = egui::Button::new("🔍 Scan")
-                .fill(Color32::from_rgb(70, 130, 180));
+            let scan_btn = egui::Button::new(
+                RichText::new("🔍 Scan")
+                    .color(colors::TEXT_PRIMARY)
+            )
+            .fill(colors::BG_SECONDARY)
+            .stroke(Stroke::new(1.0, colors::BORDER))
+            .min_size(Vec2::new(100.0, spacing::BUTTON_HEIGHT));
 
-            let mut response = ui.add(scan_btn);
-            response = response.on_hover_text("Scan projects directory for Godot projects");
+            let response = ui.add(scan_btn).on_hover_text("Scan projects directory for Godot projects");
 
             if response.clicked() {
                 // TODO: 实现项目扫描功能
@@ -106,15 +109,11 @@ fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState) {
 }
 
 /// 绘制操作按钮区域
-fn draw_action_buttons(ui: &mut egui::Ui, _state: &mut AppState) {
+fn draw_action_buttons(ui: &mut egui::Ui, state: &mut AppState) {
     ui.horizontal(|ui| {
         // 新建项目按钮
-        let new_btn = egui::Button::new("➕ New Project")
-            .fill(Color32::from_rgb(46, 139, 87))
-            .min_size(Vec2::new(120.0, 32.0));
-
-        let mut response = ui.add(new_btn);
-        response = response.on_hover_text("Create a new Godot project");
+        let new_btn = success_button("➕ New Project");
+        let response = ui.add(new_btn).on_hover_text("Create a new Godot project");
 
         if response.clicked() {
             log::info!("New project button clicked");
@@ -124,12 +123,8 @@ fn draw_action_buttons(ui: &mut egui::Ui, _state: &mut AppState) {
         ui.add_space(8.0);
 
         // 导入项目按钮
-        let import_btn = egui::Button::new("📂 Import Project")
-            .fill(Color32::from_rgb(70, 130, 180))
-            .min_size(Vec2::new(130.0, 32.0));
-
-        let mut response = ui.add(import_btn);
-        response = response.on_hover_text("Import an existing Godot project");
+        let import_btn = primary_button("📂 Import Project", state.config.theme);
+        let response = ui.add(import_btn).on_hover_text("Import an existing Godot project");
 
         if response.clicked() {
             log::info!("Import project button clicked");
@@ -139,37 +134,19 @@ fn draw_action_buttons(ui: &mut egui::Ui, _state: &mut AppState) {
         ui.add_space(8.0);
 
         // 打开项目目录按钮
-        let open_dir_btn = egui::Button::new("📁 Open Projects Folder")
-            .min_size(Vec2::new(150.0, 32.0));
+        let open_dir_btn = egui::Button::new(
+            RichText::new("📁 Open Projects Folder")
+                .color(colors::TEXT_PRIMARY)
+        )
+        .fill(colors::BG_SECONDARY)
+        .stroke(Stroke::new(1.0, colors::BORDER))
+        .min_size(Vec2::new(160.0, spacing::BUTTON_HEIGHT));
 
-        let mut response = ui.add(open_dir_btn);
-        response = response.on_hover_text("Open projects directory in file manager");
+        let response = ui.add(open_dir_btn).on_hover_text("Open projects directory in file manager");
 
         if response.clicked() {
             // 打开项目目录
-            #[cfg(target_os = "macos")]
-            {
-                std::process::Command::new("open")
-                    .arg(&_state.config.projects_dir)
-                    .spawn()
-                    .ok();
-            }
-
-            #[cfg(target_os = "linux")]
-            {
-                std::process::Command::new("xdg-open")
-                    .arg(&_state.config.projects_dir)
-                    .spawn()
-                    .ok();
-            }
-
-            #[cfg(target_os = "windows")]
-            {
-                std::process::Command::new("explorer")
-                    .arg(&_state.config.projects_dir)
-                    .spawn()
-                    .ok();
-            }
+            open_folder(&state.config.projects_dir);
         }
     });
 }
@@ -181,31 +158,17 @@ fn draw_projects_list(ui: &mut egui::Ui, state: &mut AppState) {
 
     ui.vertical(|ui| {
         // 区域标题
-        ui.horizontal(|ui| {
-            ui.label(
-                RichText::new("📁 Recent Projects")
-                    .size(16.0)
-                    .strong()
-            );
+        section_header(ui, state.config.theme, "📁", "Recent Projects", Some(projects.len()));
 
-            ui.add_space(8.0);
-
-            ui.label(
-                RichText::new(format!("({})", projects.len()))
-                    .small()
-                    .weak()
-            );
-        });
-
-        ui.add_space(8.0);
+        ui.add_space(12.0);
 
         if projects.is_empty() {
             draw_empty_projects_state(ui, state);
         } else {
             // 显示项目列表
             for (index, project) in projects.iter().enumerate() {
-                draw_project_item(ui, project, index);
-                ui.add_space(8.0);
+                draw_project_item(ui, project, index, state.config.theme);
+                ui.add_space(12.0);
             }
         }
     });
@@ -216,8 +179,9 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &AppState) {
     egui::Frame::group(ui.style())
         .inner_margin(32.0)
         .outer_margin(0.0)
-        .corner_radius(8.0)
-        .fill(Color32::from_rgba_unmultiplied(128, 128, 128, 15))
+        .corner_radius(spacing::CARD_ROUNDING)
+        .fill(colors::BG_SECONDARY)
+        .stroke(Stroke::new(1.0, colors::BORDER))
         .show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(16.0);
@@ -225,7 +189,7 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &AppState) {
                 ui.label(
                     RichText::new("📁")
                         .size(64.0)
-                        .weak()
+                        .color(colors::TEXT_MUTED)
                 );
 
                 ui.add_space(16.0);
@@ -234,23 +198,21 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &AppState) {
                     RichText::new("No Projects Found")
                         .size(18.0)
                         .strong()
+                        .color(colors::TEXT_PRIMARY)
                 );
 
                 ui.add_space(8.0);
 
                 ui.label(
                     RichText::new("Create a new project or import an existing one to get started")
-                        .weak()
+                        .color(colors::TEXT_SECONDARY)
                 );
 
                 ui.add_space(24.0);
 
                 ui.horizontal(|ui| {
                     // 新建项目按钮
-                    let new_btn = egui::Button::new("➕ New Project")
-                        .fill(Color32::from_rgb(46, 139, 87))
-                        .min_size(Vec2::new(120.0, 36.0));
-
+                    let new_btn = success_button("➕ New Project");
                     if ui.add(new_btn).clicked() {
                         log::info!("New project from empty state");
                         // TODO: 实现新建项目功能
@@ -259,10 +221,7 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &AppState) {
                     ui.add_space(12.0);
 
                     // 导入项目按钮
-                    let import_btn = egui::Button::new("📂 Import Project")
-                        .fill(Color32::from_rgb(70, 130, 180))
-                        .min_size(Vec2::new(130.0, 36.0));
-
+                    let import_btn = primary_button("📂 Import Project", state.config.theme);
                     if ui.add(import_btn).clicked() {
                         log::info!("Import project from empty state");
                         // TODO: 实现导入项目功能
@@ -278,7 +237,7 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &AppState) {
                         state.config.projects_dir.display()
                     ))
                     .small()
-                    .weak()
+                    .color(colors::TEXT_MUTED)
                     .code()
                 );
             });
@@ -286,139 +245,109 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &AppState) {
 }
 
 /// 绘制单个项目条目
-fn draw_project_item(ui: &mut egui::Ui, project: &ProjectInfo, _index: usize) {
-    egui::Frame::group(ui.style())
-        .inner_margin(12.0)
-        .outer_margin(0.0)
-        .corner_radius(8.0)
-        .stroke(Stroke::new(
-            1.0,
-            ui.style().visuals.widgets.noninteractive.bg_stroke.color
-        ))
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                // 左侧：项目图标
-                ui.vertical(|ui| {
-                    ui.add_space(4.0);
+fn draw_project_item(ui: &mut egui::Ui, project: &ProjectInfo, _index: usize, theme: Theme) {
+    card_frame(theme).show(ui, |ui| {
+        ui.horizontal(|ui| {
+            // 左侧：项目图标
+            ui.vertical(|ui| {
+                ui.add_space(4.0);
+                ui.label(
+                    RichText::new(if project.is_favorite { "⭐" } else { "🎮" })
+                        .size(32.0)
+                );
+            });
+
+            ui.add_space(12.0);
+
+            // 中间：项目信息
+            ui.vertical(|ui| {
+                // 第一行：项目名称 + 标签
+                ui.horizontal(|ui| {
                     ui.label(
-                        RichText::new(if project.is_favorite { "⭐" } else { "🎮" })
-                            .size(32.0)
+                        RichText::new(&project.name)
+                            .size(16.0)
+                            .strong()
+                            .color(colors::TEXT_PRIMARY)
                     );
-                });
-
-                ui.add_space(8.0);
-
-                // 中间：项目信息
-                ui.vertical(|ui| {
-                    // 第一行：项目名称 + 标签
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            RichText::new(&project.name)
-                                .size(16.0)
-                                .strong()
-                        );
-
-                        // 有效项目标签
-                        if project.is_valid_godot_project() {
-                            ui.add_space(4.0);
-                            ui.label(
-                                RichText::new(" Valid")
-                                    .small()
-                                    .background_color(Color32::from_rgba_unmultiplied(46, 139, 87, 50))
-                                    .color(Color32::from_rgb(46, 139, 87))
-                            );
-                        } else {
-                            ui.add_space(4.0);
-                            ui.label(
-                                RichText::new(" Invalid")
-                                    .small()
-                                    .background_color(Color32::from_rgba_unmultiplied(220, 53, 69, 50))
-                                    .color(Color32::from_rgb(220, 53, 69))
-                            );
-                        }
-
-                        // 收藏标签
-                        if project.is_favorite {
-                            ui.add_space(4.0);
-                            ui.label(
-                                RichText::new(" Favorite")
-                                    .small()
-                                    .color(Color32::from_rgb(255, 193, 7))
-                            );
-                        }
-                    });
-
-                    ui.add_space(4.0);
-
-                    // 第二行：路径
-                    let path_str = project.path.display().to_string();
-                    let display_path = if path_str.len() > 60 {
-                        format!("...{}", &path_str[path_str.len()-57..])
-                    } else {
-                        path_str
-                    };
-
-                    ui.label(
-                        RichText::new(format!("📂 {}", display_path))
-                            .small()
-                            .weak()
-                            .code()
-                    ).on_hover_text(project.path.display().to_string());
-
-                    // 第三行：Godot 版本和最后打开时间
-                    ui.horizontal(|ui| {
-                        if let Some(ref version) = project.godot_version {
-                            ui.label(
-                                RichText::new(format!("🎮 Godot {}", version))
-                                    .small()
-                                    .weak()
-                            );
-                            ui.add_space(8.0);
-                        }
-
-                        if let Some(last_opened) = &project.last_opened {
-                            ui.label(
-                                RichText::new(format!(
-                                    "🕐 Last opened: {}",
-                                    last_opened.format("%Y-%m-%d %H:%M")
-                                ))
-                                .small()
-                                .weak()
-                            );
-                        }
-                    });
-                });
-
-                // 右侧：操作按钮
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // 更多操作菜单
-                    draw_project_menu(ui, project);
 
                     ui.add_space(8.0);
 
-                    // 打开按钮
+                    // 有效项目标签
                     if project.is_valid_godot_project() {
-                        let open_btn = egui::Button::new("▶ Open")
-                            .fill(Color32::from_rgb(46, 139, 87))
-                            .min_size(Vec2::new(64.0, 28.0));
-
-                        let mut response = ui.add(open_btn);
-                        response = response.on_hover_text(format!("Open project in Godot"));
-
-                        if response.clicked() {
-                            log::info!("Opening project: {}", project.name);
-                            // TODO: 实现打开项目功能
-                        }
+                        status_pill(ui, "✓ Valid", colors::BADGE_GREEN);
                     } else {
-                        ui.add_enabled(
-                            false,
-                            egui::Button::new("⚠ Invalid")
-                                .min_size(Vec2::new(80.0, 28.0))
-                        ).on_hover_text("Project is not a valid Godot project");
+                        status_pill(ui, "✗ Invalid", colors::ERROR);
+                    }
+
+                    // 收藏标签
+                    if project.is_favorite {
+                        ui.add_space(4.0);
+                        badge(ui, "⭐ Favorite", colors::WARNING);
+                    }
+                });
+
+                ui.add_space(6.0);
+
+                // 第二行：路径
+                let path_str = project.path.display().to_string();
+                path_label(ui, theme, &path_str, 60);
+
+                ui.add_space(4.0);
+
+                // 第三行：Godot 版本和最后打开时间
+                ui.horizontal(|ui| {
+                    if let Some(ref version) = project.godot_version {
+                        ui.label(
+                            RichText::new(format!("🎮 Godot {}", version))
+                                .small()
+                                .color(colors::TEXT_SECONDARY)
+                        );
+                        ui.add_space(8.0);
+                    }
+
+                    if let Some(last_opened) = &project.last_opened {
+                        ui.label(
+                            RichText::new(format!(
+                                "🕐 Last opened: {}",
+                                last_opened.format("%Y-%m-%d %H:%M")
+                            ))
+                            .small()
+                            .color(colors::TEXT_SECONDARY)
+                        );
                     }
                 });
             });
+
+            // 右侧：操作按钮
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                // 更多操作菜单
+                draw_project_menu(ui, project);
+
+                ui.add_space(8.0);
+
+                // 打开按钮
+                if project.is_valid_godot_project() {
+                    let open_btn = success_button("▶ Open");
+                    let response = ui.add(open_btn).on_hover_text(format!("Open project in Godot"));
+
+                    if response.clicked() {
+                        log::info!("Opening project: {}", project.name);
+                        // TODO: 实现打开项目功能
+                    }
+                } else {
+                    ui.add_enabled(
+                        false,
+                        egui::Button::new(
+                            RichText::new("⚠ Invalid")
+                                .color(colors::TEXT_MUTED)
+                        )
+                        .fill(colors::BG_HOVER)
+                        .min_size(Vec2::new(80.0, spacing::BUTTON_HEIGHT))
+                    ).on_hover_text("Project is not a valid Godot project");
+                }
+            });
         });
+    });
 }
 
 /// 绘制项目操作菜单
@@ -454,9 +383,7 @@ fn draw_project_menu(ui: &mut egui::Ui, project: &ProjectInfo) {
         ui.separator();
 
         // 删除操作（危险操作）
-        let delete_btn = egui::Button::new(
-            RichText::new("🗑 Remove from List").color(Color32::from_rgb(220, 53, 69))
-        );
+        let delete_btn = danger_button("🗑 Remove from List");
 
         if ui.add(delete_btn).clicked() {
             // TODO: 显示确认对话框

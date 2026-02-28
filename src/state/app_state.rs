@@ -6,7 +6,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
 
-use crate::models::{GodotInstall, GodotVariant, GodotVersion};
+use crate::models::{GodotInstall, GodotVersion};
 
 /// 版本刷新状态
 #[derive(Debug, Clone, Default)]

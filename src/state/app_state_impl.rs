@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
-use crate::models::{GodotInstall, GodotVariant, GodotVersion};
+use crate::models::{GodotInstall, GodotVariant};
 use super::{AppState, RefreshResult};
 
 /// 检测当前平台

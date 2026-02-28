@@ -1,19 +1,8 @@
-# Godot Hub - UI 设计规范文档
+# Godot Hub - UI 设计规范文档 v2.0
 
-## 📐 设计原则
+## 📋 概述
 
-### 核心原则
-1. **简洁明了** - 界面应清晰直观，减少用户认知负担
-2. **一致性** - 保持视觉和交互的一致性
-3. **响应式** - 适应不同窗口大小和分辨率
-4. **可访问性** - 提供清晰的视觉反馈和辅助信息
-5. **高效性** - 减少操作步骤，提高工作效率
-
-### 设计理念
-- **原生优先** - 使用 egui 原生组件，保持跨平台一致性
-- **功能导向** - UI 为功能服务，不过度设计
-- **渐进披露** - 重要信息优先展示，次要信息按需展开
-- **即时反馈** - 用户操作应立即得到视觉反馈
+本文档记录了 Godot Hub 项目的 UI 设计规范和实现细节。基于 Godot Hub 界面设计方案，采用统一的样式系统、卡片式布局和清晰的信息层次结构。
 
 ---
 
@@ -21,678 +10,354 @@
 
 ### 颜色系统
 
-#### 语义颜色
-| 颜色类型 | 用途 | egui 颜色 |
-|---------|------|-----------|
-| Primary | 主要操作按钮、选中状态 | `Color32::from_rgb(70, 130, 180)` |
-| Success | 成功状态、确认操作 | `Color32::from_rgb(46, 139, 87)` |
-| Warning | 警告状态、注意事项 | `Color32::from_rgb(255, 165, 0)` |
-| Error | 错误状态、删除操作 | `Color32::from_rgb(220, 53, 69)` |
-| Info | 信息提示、帮助文本 | `Color32::from_rgb(70, 130, 180)` |
+所有颜色常量定义在 `src/ui/style.rs` 中：
 
-#### 文本颜色
-| 类型 | 用途 | 大小/颜色 |
-|-----|------|----------|
-| 标题 | Heading (h1-h6) | 14-20px, Strong |
-| 正文 | Body text | 12-14px, Normal |
-| 辅助 | Secondary text | 10-12px, Weak |
-| 代码 | Code/Path | 11px, Monospace |
-
-### 字体规范
-
-#### 字体大小层级
-```
-Heading 1 (h1): 20px - 主标题（应用名称）
-Heading 2 (h2): 18px - 次标题（面板标题）
-Heading 3 (h3): 16px - 小标题（区域标题）
-Body:           14px - 正文内容
-Small:          12px - 辅助信息
-Tiny:           10px - 标签、提示
-```
-
-#### 字体样式
+#### 背景颜色
 ```rust
-// 标题样式
-ui.heading("Title");                    // 20px, bold
-ui.h1("Heading 1");                     // 18px
-ui.h2("Heading 2");                     // 17px
-ui.h3("Heading 3");                     // 16px
-ui.h4("Heading 4");                     // 15px
-ui.h5("Heading 5");                     // 14px
-ui.h6("Heading 6");                     // 13px
-
-// 文本样式
-ui.label("Normal text");                // 正常文本
-ui.label(RichText::new("Strong").strong());  // 强调文本
-ui.label(RichText::new("Small").small());    // 小号文本
-ui.label(RichText::new("Weak").weak());      // 弱化文本
-ui.label(RichText::new("Code").code());      // 代码样式
+pub const BG_PRIMARY: Color32 = Color32::from_rgb(26, 29, 35);      // #1a1d23 主背景
+pub const BG_SECONDARY: Color32 = Color32::from_rgb(37, 40, 48);    // #252830 卡片/面板
+pub const BG_SIDEBAR: Color32 = Color32::from_rgb(22, 24, 29);      // #16181d 侧边栏
+pub const BG_HOVER: Color32 = Color32::from_rgb(45, 49, 58);        // #2d313a 悬停状态
 ```
 
-### 间距规范
-
-#### 标准间距
-```
-xs:  4px  - 元素内部间距
-sm:  8px  - 紧凑元素间距
-md:  16px - 标准元素间距
-lg:  24px - 区域间距
-xl:  32px - 大块区域间距
-```
-
-#### 应用示例
+#### 强调色
 ```rust
-// 元素内部间距
-ui.add_space(4.0);   // xs
-// 紧凑元素间距
-ui.add_space(8.0);   // sm
-// 标准间距
-ui.add_space(16.0);  // md
-// 区域分隔
-ui.add_space(24.0);  // lg
+pub const ACCENT_BLUE: Color32 = Color32::from_rgb(71, 140, 191);   // #478cbf 主强调色
+pub const ACCENT_BLUE_LIGHT: Color32 = Color32::from_rgb(92, 143, 184); // #5c8fb8
+```
+
+#### 文字颜色
+```rust
+pub const TEXT_PRIMARY: Color32 = Color32::from_rgb(224, 224, 224); // #e0e0e0 主文字
+pub const TEXT_SECONDARY: Color32 = Color32::from_rgb(139, 146, 168); // #8b92a8 次要文字
+pub const TEXT_MUTED: Color32 = Color32::from_rgb(107, 114, 128);   // #6b7280 禁用/提示
+```
+
+#### 标签颜色
+```rust
+pub const BADGE_BLUE: Color32 = Color32::from_rgb(71, 140, 191);    // 工具标签
+pub const BADGE_PURPLE: Color32 = Color32::from_rgb(142, 68, 173);  // 版本号
+pub const BADGE_GREEN: Color32 = Color32::from_rgb(39, 174, 96);    // 状态标签
+pub const BADGE_ORANGE: Color32 = Color32::from_rgb(255, 152, 0);   // 警告标签
+```
+
+#### 状态颜色
+```rust
+pub const SUCCESS: Color32 = Color32::from_rgb(46, 139, 87);        // 成功状态
+pub const WARNING: Color32 = Color32::from_rgb(255, 165, 0);        // 警告状态
+pub const ERROR: Color32 = Color32::from_rgb(220, 53, 69);          // 错误状态
+```
+
+### 尺寸规范
+
+所有尺寸常量定义在 `src/ui/style.rs` 中：
+
+```rust
+pub const SIDEBAR_WIDTH_COLLAPSED: f32 = 60.0;    // 侧边栏宽度（图标模式）
+pub const SIDEBAR_WIDTH_EXPANDED: f32 = 220.0;    // 侧边栏宽度（展开模式）
+pub const CARD_GAP: f32 = 16.0;                   // 卡片间隙
+pub const PAGE_PADDING: f32 = 24.0;               // 页面内边距
+pub const CARD_ROUNDING: f32 = 12.0;              // 卡片圆角
+pub const BUTTON_ROUNDING: f32 = 6.0;             // 按钮圆角
+pub const PILL_ROUNDING: f32 = 12.0;              // Pill 形状圆角
+pub const BUTTON_HEIGHT: f32 = 32.0;              // 标准按钮高度
+pub const BUTTON_HEIGHT_LARGE: f32 = 40.0;        // 大按钮高度
 ```
 
 ---
 
-## 🏗️ 布局结构
+## 🏗️ 架构设计
 
-### 窗口整体布局
+### 统一样式模块
+
+所有 UI 相关的样式和组件都集中在 `src/ui/style.rs` 模块中：
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Title Bar: Godot Hub                          [─][□][×]  │
-├────────────────┬────────────────────────────────────────────┤
-│                │                                            │
-│   Sidebar      │            Central Panel                  │
-│   (200-300px)  │            (自适应宽度)                    │
-│                │                                            │
-│   ┌──────────┐│  ┌──────────────────────────────────────┐ │
-│   │ Logo     ││  │  Header                              │ │
-│   │ Title    ││  │  (Title + Description + Actions)     │ │
-│   └──────────┘│  └──────────────────────────────────────┘ │
-│                │                                            │
-│   Navigation   │  ┌──────────────────────────────────────┐ │
-│   ┌──────────┐│  │                                      │ │
-│   │ Versions ││  │  Main Content                        │ │
-│   │ Projects ││  │  (ScrollArea)                        │ │
-│   │ Settings ││  │                                      │ │
-│   └──────────┘│  │                                      │ │
-│                │  │                                      │ │
-│   Statistics   │  │                                      │ │
-│   ┌──────────┐│  │                                      │ │
-│   │ Info     ││  │                                      │ │
-│   └──────────┘│  └──────────────────────────────────────┘ │
-│                │                                            │
-│   [Download]   │                                            │
-│                │                                            │
-└────────────────┴────────────────────────────────────────────┘
+src/ui/
+├── style.rs           # 统一样式模块
+│   ├── colors         # 颜色常量
+│   ├── spacing        # 尺寸常量
+│   ├── setup_visuals  # 样式配置
+│   └── components     # 可复用组件
+├── sidebar.rs         # 侧边栏组件
+├── versions_panel.rs  # 版本管理面板
+├── projects_panel.rs  # 项目管理面板
+├── settings_panel.rs  # 设置面板
+└── download_dialog.rs # 下载对话框
 ```
 
-### 侧边栏布局规范
+### 模块职责
 
-```rust
-// 侧边栏配置
-egui::SidePanel::left("sidebar")
-    .width_range(200.0..=300.0)  // 最小200px，最大300px
-    .default_width(220.0)        // 默认宽度220px
-    .show(ctx, |ui| {
-        // 内部布局
-    });
-```
+#### style.rs
+- **颜色常量定义**: 统一管理所有颜色
+- **尺寸常量定义**: 统一管理所有尺寸
+- **样式配置**: 配置 egui 的视觉效果
+- **可复用组件**: 提供常用的 UI 组件
 
-#### 侧边栏元素
-1. **应用标题区** (padding: 16px)
-   - Logo/图标
-   - 应用名称
-   - 版本号（小号文本）
-
-2. **导航区** (margin-top: 16px)
-   - 导航按钮组
-   - 当前选中项高亮
-   - 图标 + 文本
-
-3. **统计信息区** (margin-top: auto)
-   - 已安装版本数
-   - 项目数量
-   - 下载状态
-
-4. **操作按钮区** (padding: 16px)
-   - 主要操作按钮（下载新版本）
+#### 面板模块
+- 使用统一样式系统
+- 实现卡片式布局
+- 保持清晰的信息层次
+- 提供一致的交互体验
 
 ---
 
-## 📦 组件设计
+## 📦 可复用组件
 
-### 1. 版本卡片组件
+### 1. 状态标签 (Badge)
 
-#### 设计规范
-```
-┌────────────────────────────────────────────────────────┐
-│  ⚪ Godot 4.3                              [Stable]   │
-│     Standard · Linux64                               │
-│                                                        │
-│  📂 /home/user/.gdhub/versions/4.3                   │
-│                                                        │
-│  Last used: 2025-01-15                    [Run] [⋮]  │
-└────────────────────────────────────────────────────────┘
-```
-
-#### 实现规范
 ```rust
-// 卡片容器
-egui::Frame::group(ui.style())
-    .inner_margin(12.0)    // 内边距
-    .outer_margin(4.0)     // 外边距
-    .rounding(6.0)         // 圆角
-    .stroke(Stroke::new(   // 边框
-        1.0, 
-        ui.style().visuals.widgets.noninteractive.bg_stroke.color
-    ))
-    .show(ui, |ui| {
-        // 卡片内容
-    });
+pub fn badge(ui: &mut egui::Ui, text: &str, color: Color32)
 ```
 
-#### 信息层次
-1. **第一层级**：版本号（大号加粗）、状态标签
-2. **第二层级**：变体类型、平台信息
-3. **第三层级**：路径、使用时间等详细信息
-4. **操作区**：主要操作按钮、更多操作菜单
+**用途**: 显示小型的状态标签
+**示例**: 版本标签、分类标签
 
-### 2. 下载对话框组件
+### 2. Pill 形状标签
 
-#### 设计规范
-```
-┌──────────────────────────────────────────────────┐
-│  Download Godot                           [×]    │
-├──────────────────────────────────────────────────┤
-│  [Search...                          ] [Filter▼] │
-├──────────────────────────────────────────────────┤
-│  ▼ Godot 4.x                                     │
-│    ┌──────────────────────────────────────────┐  │
-│    │ Godot 4.3 - Standard        [Download]   │  │
-│    │ Released: 2024-09-20                     │  │
-│    └──────────────────────────────────────────┘  │
-│    ┌──────────────────────────────────────────┐  │
-│    │ Godot 4.2.2 - Standard     [Installed]  │  │
-│    │ Released: 2024-02-03                     │  │
-│    └──────────────────────────────────────────┘  │
-│                                                  │
-│  ▶ Godot 3.x                                     │
-│    ...                                           │
-│                                                  │
-├──────────────────────────────────────────────────┤
-│  Download Queue: 1 task                          │
-│  ┌────────────────────────────────────────────┐ │
-│  │ Godot 4.3 Mono  ████████░░░░░░  60% [×]   │ │
-│  └────────────────────────────────────────────┘ │
-│                                    [Cancel All] │
-└──────────────────────────────────────────────────┘
-```
-
-#### 实现要点
 ```rust
-Window::new("Download Godot")
-    .collapsible(false)
-    .resizable(true)
-    .default_size([600.0, 500.0])
-    .min_width(500.0)
-    .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
-    .show(ui.ctx(), |ui| {
-        // 对话框内容
-    });
+pub fn status_pill(ui: &mut egui::Ui, text: &str, color: Color32)
 ```
 
-### 3. 进度条组件
+**用途**: 显示更突出的状态标签
+**示例**: 变体标签（Standard/Mono/Export）
 
-#### 设计规范
+### 3. 卡片容器
+
 ```rust
-// 标准进度条
-egui::ProgressBar::new(progress)
-    .desired_width(200.0)
-    .text(format!("{:.0}%", progress * 100.0))
-    .animate(true);  // 启用动画效果
-
-// 带状态的进度条
-let color = if is_error {
-    Color32::ERROR_RGB
-} else if is_complete {
-    Color32::GREEN
-} else {
-    ui.style().visuals.selection.bg_fill
-};
-
-egui::ProgressBar::new(progress)
-    .desired_width(200.0)
-    .fill(color);
+pub fn card_frame() -> egui::Frame
 ```
+
+**用途**: 创建统一的卡片容器
+**特点**: 
+- 统一的背景色和圆角
+- 标准的内边距
+- 边框样式
 
 ### 4. 按钮组件
 
-#### 按钮类型
 ```rust
-// 1. 主要按钮
-let primary_btn = egui::Button::new("Download")
-    .fill(Color32::from_rgb(70, 130, 180));
-
-// 2. 次要按钮
-let secondary_btn = egui::Button::new("Cancel");
-
-// 3. 危险按钮
-let danger_btn = egui::Button::new("Delete")
-    .fill(Color32::from_rgb(220, 53, 69));
-
-// 4. 图标按钮
-let icon_btn = ui.add_sized([28.0, 28.0], egui::Button::new("⚙"));
-
-// 5. 小型按钮
-let small_btn = egui::Button::new("Details").small();
+pub fn primary_button(text: &str) -> egui::Button    // 主要按钮
+pub fn secondary_button(text: &str) -> egui::Button  // 次要按钮
+pub fn danger_button(text: &str) -> egui::Button     // 危险操作按钮
+pub fn success_button(text: &str) -> egui::Button    // 成功/运行按钮
 ```
 
-#### 按钮布局
+### 5. 空状态组件
+
 ```rust
-ui.horizontal(|ui| {
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        // 按钮从右向左排列
-        if ui.button("Cancel").clicked() {}
-        if ui.button("Save").clicked() {}
-    });
-});
+pub fn empty_state(
+    ui: &mut egui::Ui,
+    icon: &str,
+    title: &str,
+    description: &str,
+    action_text: Option<&str>,
+    action: Option<&mut dyn FnMut()>,
+)
 ```
+
+**用途**: 显示友好的空状态提示
+**特点**: 
+- 图标 + 标题 + 描述
+- 可选的操作按钮
+- 统一的视觉风格
+
+### 6. 统计卡片
+
+```rust
+pub fn stat_card(ui: &mut egui::Ui, label: &str, value: &str, icon: &str, color: Color32)
+```
+
+**用途**: 显示统计信息
+**示例**: 已安装版本数、可用版本数
+
+### 7. 区域标题
+
+```rust
+pub fn section_header(ui: &mut egui::Ui, icon: &str, text: &str, count: Option<usize>)
+```
+
+**用途**: 显示区域标题和计数
+**示例**: "📦 Installed Versions (3)"
+
+### 8. 路径标签
+
+```rust
+pub fn path_label(ui: &mut egui::Ui, path: &str, max_len: usize)
+```
+
+**用途**: 显示路径并自动截断
+**特点**: 
+- 自动截断长路径
+- 悬停显示完整路径
+- 使用代码字体样式
 
 ---
 
-## 🎯 当前 UI 问题及优化方案
+## 🎨 组件设计规范
 
-### 问题 1: 侧边栏视觉层次不明显
+### 侧边栏 (Sidebar)
 
-#### 当前问题
-- 按钮样式单调，缺少状态反馈
-- 没有图标辅助识别
-- 统计信息展示不直观
-
-#### 优化方案
-```rust
-// 侧边栏优化代码框架
-pub fn draw_sidebar(ui: &mut Ui, state: &mut AppState) {
-    // 应用标题区
-    ui.add_space(8.0);
-    ui.horizontal(|ui| {
-        ui.add_space(8.0);
-        ui.heading("🎮 Godot Hub");
-    });
-    ui.add_space(4.0);
-    ui.label(RichText::new("v0.1.0").small().weak());
-    ui.add_space(16.0);
-    ui.separator();
-    ui.add_space(8.0);
-    
-    // 导航区 - 使用更好的按钮样式
-    ui.label(RichText::new("NAVIGATION").small().weak());
-    ui.add_space(8.0);
-    
-    draw_nav_button(ui, "📦 Versions", MainTab::Versions, state);
-    draw_nav_button(ui, "📁 Projects", MainTab::Projects, state);
-    draw_nav_button(ui, "⚙️ Settings", MainTab::Settings, state);
-    
-    ui.add_space(16.0);
-    ui.separator();
-    ui.add_space(8.0);
-    
-    // 统计卡片
-    draw_stat_card(ui, "Installed", state.installed_versions.len());
-    
-    ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-        // 底部下载按钮
-        ui.add_space(8.0);
-        if ui.add_sized([180.0, 36.0], egui::Button::new("⬇️ Download New").fill(Color32::from_rgb(70, 130, 180))).clicked() {
-            state.show_download_dialog = true;
-        }
-    });
-}
-
-// 导航按钮样式
-fn draw_nav_button(ui: &mut Ui, text: &str, tab: MainTab, state: &mut AppState) {
-    let is_selected = state.current_tab == tab;
-    
-    let btn = if is_selected {
-        egui::Button::new(RichText::new(text).strong())
-            .fill(Color32::from_rgb(60, 120, 170))
-    } else {
-        egui::Button::new(RichText::new(text))
-    };
-    
-    if ui.add_sized([200.0, 32.0], btn).clicked() {
-        state.current_tab = tab;
-    }
-}
+#### 布局结构
+```
+┌────────────────┐
+│  🎮 Godot Hub  │  应用标题区
+│  Engine Mgr    │
+│                │
+│  ───────────── │  分隔线
+│                │
+│  NAVIGATION    │  导航区
+│  📦 Versions   │
+│  📁 Projects   │
+│  ⚙️ Settings   │
+│                │
+│  ───────────── │  分隔线
+│                │
+│  STATISTICS    │  统计区
+│  ┌──────────┐ │
+│  │📦 3      │ │
+│  │Installed │ │
+│  └──────────┘ │
+│                │
+│  v0.1.0        │  版本信息
+│  [⬇️ Download]│  下载按钮
+└────────────────┘
 ```
 
-### 问题 2: 版本面板信息展示混乱
+#### 设计要点
+- 宽度固定为 220px
+- 背景色使用 `BG_SIDEBAR`
+- 导航按钮选中时高亮
+- 统计卡片使用颜色条标识
+- 底部固定下载按钮
 
-#### 当前问题
-- 信息层次不清晰
-- 操作按钮排列不整齐
-- 缺少状态标签
+### 版本管理面板 (Versions Panel)
 
-#### 优化方案
-```rust
-pub fn draw_installed_version(ui: &mut Ui, install: &GodotInstall, state: &mut AppState) {
-    egui::Frame::group(ui.style())
-        .inner_margin(12.0)
-        .outer_margin(4.0)
-        .rounding(6.0)
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                // 左侧：版本信息
-                ui.vertical(|ui| {
-                    // 第一行：版本号 + 标签
-                    ui.horizontal(|ui| {
-                        ui.label(RichText::new(&install.version).size(16.0).strong());
-                        
-                        // 变体标签
-                        let variant_label = match install.variant {
-                            GodotVariant::Mono => "Mono",
-                            _ => "Standard"
-                        };
-                        ui.label(
-                            RichText::new(variant_label)
-                                .small()
-                                .background_color(Color32::from_rgb(100, 100, 100))
-                        );
-                        
-                        // 收藏标签
-                        if install.is_favorite {
-                            ui.label(RichText::new("⭐ Favorite").small());
-                        }
-                    });
-                    
-                    // 第二行：路径信息
-                    ui.add_space(4.0);
-                    ui.label(
-                        RichText::new(format!("📂 {}", install.path.display()))
-                            .small()
-                            .weak()
-                            .code()
-                    );
-                    
-                    // 第三行：使用时间
-                    if let Some(last_used) = &install.last_used {
-                        ui.label(
-                            RichText::new(format!("Last used: {}", last_used.format("%Y-%m-%d")))
-                                .small()
-                                .weak()
-                        );
-                    }
-                });
-                
-                // 右侧：操作按钮
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // 更多操作菜单
-                    ui.menu_button("⋮", |ui| {
-                        if ui.button("Open Folder").clicked() {
-                            // 打开文件夹
-                        }
-                        if ui.button("Create Shortcut").clicked() {
-                            // 创建快捷方式
-                        }
-                        ui.separator();
-                        if ui.button(RichText::new("Remove").color(Color32::RED)).clicked() {
-                            // 删除
-                        }
-                    });
-                    
-                    ui.add_space(8.0);
-                    
-                    // 运行按钮
-                    let run_btn = egui::Button::new("▶ Run")
-                        .fill(Color32::from_rgb(46, 139, 87));
-                    if ui.add(run_btn).clicked() {
-                        services::launch_godot(&install.path).ok();
-                    }
-                });
-            });
-        });
-}
+#### 布局结构
+```
+┌────────────────────────────────────────────────────────────┐
+│  Godot Versions                          [🔄 Refresh]      │
+│  Manage your Godot engine installations                    │
+├────────────────────────────────────────────────────────────┤
+│  📦 Installed Versions (3)                                 │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │ 🎮  4.3  [Standard]  [⭐ Favorite]        [⋮] [▶ Run]│ │
+│  │      📂 .../Godot/4.3/standard/godot                  │ │
+│  │      🕐 Last used: 2025-01-16 14:30                  │ │
+│  └──────────────────────────────────────────────────────┘ │
+│                                                            │
+│  🌐 Available Versions (12)                                │
+│  ▼ Godot 4.x                                               │
+│    ┌────────────────────────────────────────────────────┐ │
+│    │  4.3  [Mono]  Linux64        [⬇️ Download]        │ │
+│    │  📅 Released: 2024-08-15                           │ │
+│    └────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
 ```
 
-### 问题 3: 下载进度条显示错误
+#### 设计要点
+- 使用卡片式布局
+- 变体标签使用不同颜色
+- 状态标签清晰标识
+- 操作按钮右对齐
+- 长路径自动截断
 
-#### 当前问题
-```rust
-// 当前代码问题：进度条没有添加到 UI
-ui.vertical(|ui| {
-    ui.label(format!("{}%", progress_percent));
-    egui::ProgressBar::new(progress)
-        .desired_width(150.0)
-        .animate(true);
-});
+### 项目管理面板 (Projects Panel)
+
+#### 布局结构
+```
+┌────────────────────────────────────────────────────────────┐
+│  Projects                                  [🔍 Scan]       │
+│  Manage your Godot projects                                │
+├────────────────────────────────────────────────────────────┤
+│  [➕ New Project] [📂 Import Project] [📁 Open Folder]    │
+│                                                            │
+│  📁 Recent Projects (5)                                    │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │ 🎮  My Game  [✓ Valid]  [⭐ Favorite]    [⋮] [▶ Open]│ │
+│  │      📂 .../Godot/Projects/MyGame                     │ │
+│  │      🎮 Godot 4.3  🕐 Last opened: 2025-01-15       │ │
+│  └──────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
 ```
 
-#### 优化方案
-```rust
-// 正确的进度条实现
-fn draw_download_progress(ui: &mut Ui, progress: f32) {
-    ui.vertical(|ui| {
-        // 进度条
-        ui.add(
-            egui::ProgressBar::new(progress)
-                .desired_width(150.0)
-                .text(format!("{:.0}%", progress * 100.0))
-                .animate(true)
-        );
-        
-        // 进度详情
-        ui.label(
-            RichText::new(format!("Downloading... {:.0}%", progress * 100.0))
-                .small()
-        );
-    });
-}
+#### 设计要点
+- 顶部操作按钮区
+- 项目卡片显示完整信息
+- 有效/无效状态标识
+- 收藏项目星标显示
+- 快捷操作菜单
+
+### 设置面板 (Settings Panel)
+
+#### 布局结构
 ```
+┌────────────────────────────────────────────────────────────┐
+│  Settings                          [🔄 Reset] [💾 Save]    │
+│  Configure application preferences                         │
+├────────────────────────────────────────────────────────────┤
+│  📂 Directories                                            │
+│  Configure installation and project directories            │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │  Installation Directory                              │ │
+│  │  [/path/to/install              ] [Browse] [📂 Open] │ │
+│  │  Where Godot versions will be installed              │ │
+│  │                                                      │ │
+│  │  Projects Directory                                  │ │
+│  │  [/path/to/projects             ] [Browse] [📂 Open] │ │
+│  │  Default location for your Godot projects            │ │
+│  └──────────────────────────────────────────────────────┘ │
+│                                                            │
+│  ⚙️ Behavior                                               │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │  Check for Updates on Startup          [✓]          │ │
+│  │  Application Theme                                   │ │
+│  │  [🌙 Dark] [☀️ Light] [💻 System]                   │ │
+│  └──────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────┘
+```
+
+#### 设计要点
+- 使用区块式布局
+- 每个设置项包含标题和说明
+- 目录设置提供快捷操作
+- 主题选择使用按钮组
+- 下载源选择清晰标识
 
 ---
 
-## 🎨 样式配置
+## 🔧 样式配置
 
-### egui 主题配置
-
-```rust
-// 自定义样式配置
-fn configure_visuals(ctx: &egui::Context) {
-    let mut style = (*ctx.style()).clone();
-    
-    // 间距配置
-    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
-    style.spacing.button_padding = egui::vec2(8.0, 4.0);
-    style.spacing.interact_size = egui::vec2(40.0, 20.0);
-    
-    // 视觉配置
-    style.visuals.button_frame = true;
-    style.visuals.collapsing_header_frame = true;
-    
-    // 颜色配置
-    style.visuals.selection.bg_fill = Color32::from_rgb(70, 130, 180);
-    style.visuals.hyperlink_color = Color32::from_rgb(70, 130, 180);
-    
-    ctx.set_style(style);
-}
-```
-
-### 暗色主题（默认）
+### egui 视觉效果配置
 
 ```rust
-fn dark_theme() -> egui::Visuals {
+pub fn setup_visuals(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();
     
-    visuals.window_fill = Color32::from_rgb(25, 25, 25);
-    visuals.panel_fill = Color32::from_rgb(30, 30, 30);
-    visuals.extreme_bg_color = Color32::from_rgb(20, 20, 20);
+    // 窗口/面板背景
+    visuals.window_fill = colors::BG_PRIMARY;
+    visuals.panel_fill = colors::BG_PRIMARY;
+    visuals.extreme_bg_color = colors::BG_SIDEBAR;
     
-    visuals
-}
-```
-
-### 亮色主题
-
-```rust
-fn light_theme() -> egui::Visuals {
-    let mut visuals = egui::Visuals::light();
+    // 文字
+    visuals.override_text_color = Some(colors::TEXT_PRIMARY);
+    visuals.text_cursor.stroke.color = colors::ACCENT_BLUE;
     
-    visuals.window_fill = Color32::from_rgb(245, 245, 245);
-    visuals.panel_fill = Color32::from_rgb(240, 240, 240);
+    // 组件样式
+    visuals.widgets.inactive.weak_bg_fill = colors::BG_SECONDARY;
+    visuals.widgets.inactive.bg_fill = colors::BG_SECONDARY;
+    visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, colors::BORDER);
     
-    visuals
-}
-```
-
----
-
-## 📱 响应式设计
-
-### 断点定义
-
-```rust
-// 窗口尺寸断点
-const MIN_WIDTH: f32 = 800.0;
-const MOBILE_WIDTH: f32 = 600.0;
-const TABLET_WIDTH: f32 = 900.0;
-const DESKTOP_WIDTH: f32 = 1200.0;
-
-// 根据宽度调整布局
-fn get_layout_mode(width: f32) -> LayoutMode {
-    if width < MOBILE_WIDTH {
-        LayoutMode::Mobile
-    } else if width < TABLET_WIDTH {
-        LayoutMode::Tablet
-    } else {
-        LayoutMode::Desktop
-    }
-}
-
-enum LayoutMode {
-    Mobile,   // 隐藏侧边栏，使用抽屉式菜单
-    Tablet,   // 缩小侧边栏宽度
-    Desktop,  // 完整布局
-}
-```
-
-### 自适应组件
-
-```rust
-// 根据宽度调整卡片布局
-fn draw_versions_grid(ui: &mut Ui, versions: &[GodotInstall]) {
-    let available_width = ui.available_width();
-    let columns = if available_width > 800.0 { 2 } else { 1 };
+    visuals.widgets.hovered.weak_bg_fill = colors::BG_HOVER;
+    visuals.widgets.hovered.bg_fill = colors::BG_HOVER;
+    visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, colors::ACCENT_BLUE);
     
-    egui::Grid::new("versions_grid")
-        .num_columns(columns)
-        .spacing([16.0, 16.0])
-        .show(ui, |ui| {
-            for version in versions {
-                draw_version_card(ui, version);
-                ui.end_row();
-            }
-        });
-}
-```
-
----
-
-## 🔧 可复用组件库
-
-### 1. 信息卡片组件
-
-```rust
-struct InfoCard {
-    title: String,
-    value: String,
-    icon: String,
-    color: Color32,
-}
-
-impl InfoCard {
-    fn show(&self, ui: &mut Ui) {
-        egui::Frame::group(ui.style())
-            .inner_margin(12.0)
-            .outer_margin(4.0)
-            .rounding(8.0)
-            .fill(self.color.linear_multiply(0.1))
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(&self.icon);
-                    ui.vertical(|ui| {
-                        ui.label(RichText::new(&self.title).small().weak());
-                        ui.label(RichText::new(&self.value).size(20.0).strong());
-                    });
-                });
-            });
-    }
-}
-```
-
-### 2. 状态标签组件
-
-```rust
-enum Status {
-    Stable,
-    Beta,
-    Dev,
-    Installed,
-    Downloading,
-}
-
-fn draw_status_tag(ui: &mut Ui, status: Status) {
-    let (text, color) = match status {
-        Status::Stable => ("Stable", Color32::from_rgb(46, 139, 87)),
-        Status::Beta => ("Beta", Color32::from_rgb(255, 165, 0)),
-        Status::Dev => ("Dev", Color32::from_rgb(220, 53, 69)),
-        Status::Installed => ("Installed", Color32::from_rgb(70, 130, 180)),
-        Status::Downloading => ("Downloading", Color32::from_rgb(128, 128, 128)),
-    };
+    visuals.widgets.active.bg_fill = colors::ACCENT_BLUE;
     
-    ui.label(
-        RichText::new(text)
-            .small()
-            .background_color(color.linear_multiply(0.3))
-            .color(color)
-    );
-}
-```
-
-### 3. 空状态组件
-
-```rust
-struct EmptyState {
-    icon: String,
-    title: String,
-    description: String,
-    action_text: Option<String>,
-}
-
-impl EmptyState {
-    fn show(&self, ui: &mut Ui) -> Option<()> {
-        ui.vertical_centered(|ui| {
-            ui.add_space(48.0);
-            
-            ui.label(RichText::new(&self.icon).size(64.0).weak());
-            ui.add_space(16.0);
-            
-            ui.label(RichText::new(&self.title).size(18.0).strong());
-            ui.add_space(8.0);
-            
-            ui.label(RichText::new(&self.description).weak());
-            ui.add_space(16.0);
-            
-            if let Some(text) = &self.action_text {
-                if ui.button(text).clicked() {
-                    return Some(());
-                }
-            }
-            
-            None
-        }).inner
-    }
+    // 选择高亮
+    visuals.selection.bg_fill = colors::ACCENT_BLUE;
+    
+    ctx.set_visuals(visuals);
 }
 ```
 
@@ -700,116 +365,170 @@ impl EmptyState {
 
 ## 📝 最佳实践
 
-### 1. 保持一致性
-- 相同功能的按钮使用相同的图标和文本
-- 保持相同的间距和对齐方式
-- 使用统一的颜色系统
+### 1. 使用统一样式
 
-### 2. 提供反馈
+**推荐**:
 ```rust
-// 按钮点击反馈
-if ui.button("Save").clicked() {
-    // 立即更新 UI
-    state.saved = true;
-    ui.ctx().request_repaint();
-    
-    // 异步执行保存操作
-    save_state_async(state.clone());
-}
+use crate::ui::style::{colors, spacing, card_frame, primary_button};
 
-// 悬停提示
-ui.add_enabled(false, egui::Button::new("Download"))
-    .on_hover_text("Select a version first");
+// 使用统一的颜色
+ui.label(RichText::new("Text").color(colors::TEXT_PRIMARY));
+
+// 使用统一的卡片
+card_frame().show(ui, |ui| {
+    // 内容
+});
+
+// 使用统一的按钮
+ui.add(primary_button("Download"));
 ```
 
-### 3. 处理长文本
+**不推荐**:
 ```rust
-// 路径截断
-let path_text = if path.display().to_string().len() > 40 {
-    format!("...{}", &path.display().to_string()[path.display().to_string().len()-37..])
-} else {
-    path.display().to_string()
-};
+// 硬编码颜色
+ui.label(RichText::new("Text").color(Color32::from_rgb(255, 0, 0)));
 
-ui.label(RichText::new(&path_text).code())
-    .on_hover_text(path.display().to_string());  // 完整路径在悬停时显示
+// 重复定义样式
+egui::Frame::group(ui.style())
+    .fill(Color32::from_rgb(37, 40, 48))
+    .show(ui, |ui| { /* ... */ });
 ```
 
-### 4. 防止 UI 阻塞
+### 2. 保持信息层次
+
 ```rust
-// 使用异步操作
-fn start_download(version: GodotVersion, ctx: egui::Context) {
-    std::thread::spawn(move || {
-        // 执行下载
-        for progress in 0..=100 {
-            std::thread::sleep(Duration::from_millis(50));
-            
-            // 更新 UI
-            ctx.request_repaint();
-        }
+// 第一层：区域标题
+section_header(ui, "📦", "Installed Versions", Some(3));
+
+ui.add_space(12.0);
+
+// 第二层：卡片
+card_frame().show(ui, |ui| {
+    // 第三层：卡片内容
+    ui.horizontal(|ui| {
+        ui.label(RichText::new("4.3").size(16.0).strong());
+        status_pill(ui, "Standard", colors::BADGE_GREEN);
     });
+    
+    ui.add_space(6.0);
+    
+    // 第四层：详细信息
+    path_label(ui, &path_str, 60);
+});
+```
+
+### 3. 处理交互反馈
+
+```rust
+// 按钮悬停提示
+let response = ui.add(primary_button("Download"));
+let response = response.on_hover_text("Download Godot from GitHub");
+
+if response.clicked() {
+    // 执行操作
+}
+```
+
+### 4. 空状态友好提示
+
+```rust
+if items.is_empty() {
+    empty_state(
+        ui,
+        "📦",
+        "No Items Found",
+        "Click 'Add' to create your first item",
+        Some("➕ Add Item"),
+        Some(&mut || {
+            // 添加操作
+        })
+    );
+} else {
+    // 显示列表
 }
 ```
 
 ---
 
-## 📋 UI 检查清单
+## 🚀 实现清单
 
-### 每个面板应该包含
-- [ ] 清晰的标题和描述
-- [ ] 合理的默认布局
-- [ ] 响应式设计
-- [ ] 空状态提示
-- [ ] 加载状态指示
-- [ ] 错误状态处理
-- [ ] 工具提示
+### ✅ 已完成
 
-### 每个交互元素应该
-- [ ] 有明确的视觉状态（悬停、按下、禁用）
-- [ ] 提供即时反馈
-- [ ] 有合理的键盘支持
-- [ ] 包含工具提示（如果需要）
+- [x] 统一样式模块 (`style.rs`)
+- [x] 颜色常量系统
+- [x] 尺寸常量系统
+- [x] 可复用组件库
+- [x] 侧边栏优化
+- [x] 版本管理面板优化
+- [x] 项目管理面板优化
+- [x] 设置面板优化
+- [x] egui API 兼容性修复
 
-### 对话框应该
-- [ ] 可以通过 Esc 键关闭
-- [ ] 有明确的操作按钮
-- [ ] 合理的默认焦点
-- [ ] 清晰的内容层次
+### 🔄 进行中
+
+- [ ] 下载对话框优化
+- [ ] 主题切换功能
+- [ ] 响应式布局优化
+
+### 📋 待办
+
+- [ ] 动画效果
+- [ ] 键盘快捷键
+- [ ] 无障碍支持
+- [ ] 性能优化
 
 ---
 
-## 🚀 未来改进方向
+## 📊 技术细节
 
-### 短期目标 (v0.2.0)
-1. 完成侧边栏视觉优化
-2. 实现卡片式版本展示
-3. 修复进度条显示问题
-4. 添加工具提示系统
+### egui API 兼容性
 
-### 中期目标 (v0.3.0)
-1. 实现主题切换功能
-2. 添加响应式布局
-3. 完善键盘导航
-4. 优化动画效果
+#### Frame API 变更
+```rust
+// 旧版本
+egui::Frame::none()
+    .rounding(8.0)
+    .inner_margin(egui::Margin::symmetric(12.0, 8.0))
 
-### 长期目标 (v1.0.0)
-1. 自定义主题编辑器
-2. 无障碍访问支持
-3. 高 DPI 支持
-4. 多窗口支持
+// 新版本 (egui 0.31+)
+egui::Frame::NONE
+    .corner_radius(8.0)
+    .inner_margin(egui::Margin::symmetric(12, 8))
+```
+
+#### Margin 类型变更
+```rust
+// Margin 现在使用 i8 类型
+egui::Margin::same(16)          // 正确
+egui::Margin::same(16.0)        // 错误
+
+egui::Margin::symmetric(12, 8)  // 正确
+egui::Margin::symmetric(12.0, 8.0)  // 错误
+```
+
+### 编译警告处理
+
+```rust
+// 未使用的导入
+use crate::ui::style::{colors, spacing};  // 只导入需要的
+
+// 未使用的变量
+fn draw_panel_header(ui: &mut egui::Ui, _state: &mut AppState) {
+    // 使用下划线前缀
+}
+```
 
 ---
 
 ## 📚 参考资料
 
 - [egui 官方文档](https://docs.rs/egui/)
-- [egui 演示应用](https://www.egui.rs/)
-- [Godot Hub 设计参考](https://github.com/godotengine/godot)
-- [Material Design 指南](https://material.io/design)
-- [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/)
+- [egui GitHub 仓库](https://github.com/emilk/egui)
+- [Godot Hub 设计方案](./DESIGN.md)
+- [项目架构文档](./ARCHITECTURE.md)
 
 ---
 
-*最后更新: 2025-01-16*
-*文档版本: 1.0*
-*维护者: Godot Hub 开发团队*
+**文档版本**: 2.0  
+**最后更新**: 2025-01-16  
+**维护者**: Godot Hub 开发团队

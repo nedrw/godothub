@@ -10,7 +10,7 @@ mod utils;
 use eframe::{egui, App, Frame, NativeOptions};
 use std::sync::Arc;
 use std::time::Duration;
-use state::Theme;
+
 use tokio::runtime::Runtime;
 
 /// 主应用程序
@@ -43,8 +43,8 @@ impl Default for GodotHubApp {
 
 impl App for GodotHubApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
-        // 应用主题
-        apply_theme(ctx, self.state.config.theme);
+        // 应用主题和样式
+        ui::setup_visuals(ctx, self.state.config.theme);
 
         // 检查并处理版本刷新结果
         self.state.poll_refresh_result();
@@ -94,40 +94,6 @@ impl App for GodotHubApp {
     fn persist_egui_memory(&self) -> bool {
         true
     }
-}
-
-/// 应用主题
-fn apply_theme(ctx: &egui::Context, theme: Theme) {
-    let mut style = (*ctx.style()).clone();
-
-    match theme {
-        Theme::Dark => {
-            style.visuals = egui::Visuals::dark();
-            style.visuals.window_fill = egui::Color32::from_rgb(25, 25, 25);
-            style.visuals.panel_fill = egui::Color32::from_rgb(30, 30, 30);
-            style.visuals.extreme_bg_color = egui::Color32::from_rgb(20, 20, 20);
-        }
-        Theme::Light => {
-            style.visuals = egui::Visuals::light();
-            style.visuals.window_fill = egui::Color32::from_rgb(245, 245, 245);
-            style.visuals.panel_fill = egui::Color32::from_rgb(240, 240, 240);
-            style.visuals.extreme_bg_color = egui::Color32::from_rgb(235, 235, 235);
-        }
-        Theme::System => {
-            // 暂时使用深色主题，后续可以通过系统 API 检测
-            style.visuals = egui::Visuals::dark();
-        }
-    }
-
-    // 自定义一些通用样式
-    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
-    style.spacing.button_padding = egui::vec2(8.0, 4.0);
-    style.spacing.interact_size = egui::vec2(40.0, 20.0);
-    style.visuals.button_frame = true;
-    style.visuals.collapsing_header_frame = true;
-    style.visuals.selection.bg_fill = egui::Color32::from_rgb(70, 130, 180);
-
-    ctx.set_style(style);
 }
 
 /// 应用程序入口点

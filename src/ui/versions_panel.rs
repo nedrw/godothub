@@ -1,17 +1,20 @@
 // VersionsPanel - 版本管理面板 UI 组件
-// 优化版本：卡片式布局、清晰信息层次、状态标签、改进交互
+// 优化版本：使用统一样式系统、卡片式布局、清晰信息层次
 
-use egui::{Color32, RichText, ScrollArea, Stroke, Vec2};
+use egui::{RichText, ScrollArea, Stroke, Vec2};
 
 use crate::models::{GodotInstall, GodotVariant, GodotVersion};
 use crate::services;
-use crate::state::AppState;
+use crate::state::{AppState, Theme};
+use crate::ui::style::{colors, spacing, card_frame, section_header, panel_header,
+                       primary_button, success_button, danger_button, badge,
+                       status_pill, empty_state, path_label};
 
 /// 绘制版本管理面板
 pub fn draw_versions_panel(ui: &mut egui::Ui, state: &mut AppState) {
     // 顶部标题区域
     egui::TopBottomPanel::top("versions_header")
-        .frame(egui::Frame::NONE.inner_margin(egui::Margin::same(16)))
+        .frame(egui::Frame::NONE.inner_margin(16.0))
         .show_inside(ui, |ui| {
             draw_panel_header(ui, state);
         });
@@ -25,7 +28,7 @@ pub fn draw_versions_panel(ui: &mut egui::Ui, state: &mut AppState) {
             // 已安装版本部分
             draw_installed_section(ui, state);
 
-            ui.add_space(16.0);
+            ui.add_space(24.0);
 
             // 可用版本部分
             draw_available_section(ui, state);
@@ -37,22 +40,19 @@ pub fn draw_versions_panel(ui: &mut egui::Ui, state: &mut AppState) {
 /// 绘制面板头部
 fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState) {
     ui.horizontal(|ui| {
-        ui.vertical(|ui| {
-            ui.heading("Godot Versions");
-            ui.label(
-                RichText::new("Manage your Godot engine installations")
-                    .small()
-                    .weak()
-            );
-        });
+        panel_header(ui, state.config.theme, "Godot Versions", "Manage your Godot engine installations");
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // 刷新按钮
-            let refresh_btn = egui::Button::new("🔄 Refresh")
-                .fill(Color32::from_rgb(70, 130, 180));
+            let refresh_btn = egui::Button::new(
+                RichText::new("🔄 Refresh")
+                    .color(colors::TEXT_PRIMARY)
+            )
+            .fill(colors::BG_SECONDARY)
+            .stroke(Stroke::new(1.0, colors::BORDER))
+            .min_size(Vec2::new(100.0, spacing::BUTTON_HEIGHT));
 
-            let mut response = ui.add(refresh_btn);
-            let response = response.on_hover_text("Refresh installed versions list");
+            let response = ui.add(refresh_btn).on_hover_text("Refresh installed versions list");
 
             if response.clicked() {
                 state.load_installed_versions();
@@ -65,23 +65,9 @@ fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState) {
 fn draw_installed_section(ui: &mut egui::Ui, state: &mut AppState) {
     ui.vertical(|ui| {
         // 区域标题
-        ui.horizontal(|ui| {
-            ui.label(
-                RichText::new("📦 Installed Versions")
-                    .size(16.0)
-                    .strong()
-            );
+        section_header(ui, state.config.theme, "📦", "Installed Versions", Some(state.installed_versions.len()));
 
-            ui.add_space(8.0);
-
-            ui.label(
-                RichText::new(format!("({})", state.installed_versions.len()))
-                    .small()
-                    .weak()
-            );
-        });
-
-        ui.add_space(8.0);
+        ui.add_space(12.0);
 
         if state.installed_versions.is_empty() {
             draw_empty_installed_state(ui, state);
@@ -90,7 +76,7 @@ fn draw_installed_section(ui: &mut egui::Ui, state: &mut AppState) {
             let installs: Vec<GodotInstall> = state.installed_versions.clone();
             for (index, install) in installs.iter().enumerate() {
                 draw_installed_version_card(ui, index, install, state);
-                ui.add_space(8.0);
+                ui.add_space(12.0);
             }
         }
     });
@@ -98,51 +84,17 @@ fn draw_installed_section(ui: &mut egui::Ui, state: &mut AppState) {
 
 /// 绘制空状态（已安装版本）
 fn draw_empty_installed_state(ui: &mut egui::Ui, state: &mut AppState) {
-    egui::Frame::group(ui.style())
-        .inner_margin(24.0)
-        .outer_margin(0.0)
-        .corner_radius(8.0)
-        .fill(Color32::from_rgba_unmultiplied(128, 128, 128, 15))
-        .show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(16.0);
-
-                ui.label(
-                    RichText::new("📦")
-                        .size(48.0)
-                        .weak()
-                );
-
-                ui.add_space(12.0);
-
-                ui.label(
-                    RichText::new("No Godot Versions Installed")
-                        .size(16.0)
-                        .strong()
-                );
-
-                ui.add_space(8.0);
-
-                ui.label(
-                    RichText::new("Click 'Download New Version' to get started")
-                        .weak()
-                );
-
-                ui.add_space(16.0);
-
-                let download_btn = egui::Button::new(
-                    RichText::new("⬇️  Download Now").strong()
-                )
-                .fill(Color32::from_rgb(70, 130, 180))
-                .min_size(Vec2::new(160.0, 32.0));
-
-                if ui.add(download_btn).clicked() {
-                    state.show_download_dialog = true;
-                }
-
-                ui.add_space(8.0);
-            });
-        });
+    empty_state(
+        ui,
+        state.config.theme,
+        "📦",
+        "No Godot Versions Installed",
+        "Click 'Download New Version' to get started",
+        Some("⬇️ Download Now"),
+        Some(&mut || {
+            state.show_download_dialog = true;
+        })
+    );
 }
 
 /// 绘制已安装版本卡片
@@ -152,113 +104,91 @@ fn draw_installed_version_card(
     install: &GodotInstall,
     state: &mut AppState,
 ) {
-    egui::Frame::group(ui.style())
-        .inner_margin(12.0)
-        .outer_margin(0.0)
-        .corner_radius(8.0)
-        .stroke(Stroke::new(
-            1.0,
-            ui.style().visuals.widgets.noninteractive.bg_stroke.color
-        ))
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                // 左侧：版本图标
-                ui.vertical(|ui| {
-                    ui.add_space(4.0);
+    card_frame(state.config.theme).show(ui, |ui| {
+        ui.horizontal(|ui| {
+            // 左侧：版本图标
+            ui.vertical(|ui| {
+                ui.add_space(4.0);
+                ui.label(
+                    RichText::new(if install.is_favorite { "⭐" } else { "🎮" })
+                        .size(32.0)
+                );
+            });
+
+            ui.add_space(12.0);
+
+            // 中间：版本信息
+            ui.vertical(|ui| {
+                // 第一行：版本号 + 标签
+                ui.horizontal(|ui| {
                     ui.label(
-                        RichText::new(if install.is_favorite { "⭐" } else { "🎮" })
-                            .size(32.0)
+                        RichText::new(&install.version)
+                            .size(16.0)
+                            .strong()
+                            .color(colors::TEXT_PRIMARY)
                     );
-                });
-
-                ui.add_space(8.0);
-
-                // 中间：版本信息
-                ui.vertical(|ui| {
-                    // 第一行：版本号 + 标签
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            RichText::new(&install.version)
-                                .size(16.0)
-                                .strong()
-                        );
-
-                        // 变体标签
-                        let (variant_text, variant_color) = match install.variant {
-                            GodotVariant::Mono => ("Mono", Color32::from_rgb(156, 39, 176)),
-                            GodotVariant::Standard => ("Standard", Color32::from_rgb(76, 175, 80)),
-                            GodotVariant::ExportTemplates => ("Export", Color32::from_rgb(255, 152, 0)),
-                        };
-
-                        draw_status_tag(ui, variant_text, variant_color);
-
-                        // 收藏标签
-                        if install.is_favorite {
-                            ui.add_space(4.0);
-                            ui.label(
-                                RichText::new("Favorite")
-                                    .small()
-                                    .color(Color32::from_rgb(255, 193, 7))
-                            );
-                        }
-                    });
-
-                    ui.add_space(4.0);
-
-                    // 第二行：路径
-                    let path_str = install.path.display().to_string();
-                    let display_path = if path_str.len() > 60 {
-                        format!("...{}", &path_str[path_str.len()-57..])
-                    } else {
-                        path_str
-                    };
-
-                    ui.label(
-                        RichText::new(format!("📂 {}", display_path))
-                            .small()
-                            .weak()
-                            .code()
-                    ).on_hover_text(install.path.display().to_string());
-
-                    // 第三行：使用时间
-                    if let Some(last_used) = &install.last_used {
-                        ui.label(
-                            RichText::new(format!(
-                                "🕐 Last used: {}",
-                                last_used.format("%Y-%m-%d %H:%M")
-                            ))
-                            .small()
-                            .weak()
-                        );
-                    }
-                });
-
-                // 右侧：操作按钮
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // 更多操作菜单
-                    draw_version_menu(ui, index, state);
 
                     ui.add_space(8.0);
 
-                    // 运行按钮
-                    let run_btn = egui::Button::new("▶ Run")
-                        .fill(Color32::from_rgb(46, 139, 87))
-                        .min_size(Vec2::new(64.0, 28.0));
+                    // 变体标签
+                    let (variant_text, variant_color) = match install.variant {
+                        GodotVariant::Mono => ("Mono", colors::BADGE_PURPLE),
+                        GodotVariant::Standard => ("Standard", colors::BADGE_GREEN),
+                        GodotVariant::ExportTemplates => ("Export", colors::BADGE_ORANGE),
+                    };
 
-                    let mut response = ui.add(run_btn);
-                    let response = response.on_hover_text(format!(
-                        "Launch Godot {}",
-                        install.version
-                    ));
+                    status_pill(ui, variant_text, variant_color);
 
-                    if response.clicked() {
-                        if let Err(e) = services::launch_godot(&install.path) {
-                            log::error!("Failed to launch Godot: {}", e);
-                        }
+                    // 收藏标签
+                    if install.is_favorite {
+                        ui.add_space(4.0);
+                        badge(ui, "⭐ Favorite", colors::WARNING);
                     }
                 });
+
+                ui.add_space(6.0);
+
+                // 第二行：路径
+                let path_str = install.path.display().to_string();
+                path_label(ui, state.config.theme, &path_str, 60);
+
+                ui.add_space(4.0);
+
+                // 第三行：使用时间
+                if let Some(last_used) = &install.last_used {
+                    ui.label(
+                        RichText::new(format!(
+                            "🕐 Last used: {}",
+                            last_used.format("%Y-%m-%d %H:%M")
+                        ))
+                        .small()
+                        .color(colors::TEXT_SECONDARY)
+                    );
+                }
+            });
+
+            // 右侧：操作按钮
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                // 更多操作菜单
+                draw_version_menu(ui, index, state);
+
+                ui.add_space(8.0);
+
+                // 运行按钮
+                let run_btn = success_button("▶ Run");
+                let response = ui.add(run_btn).on_hover_text(format!(
+                    "Launch Godot {}",
+                    install.version
+                ));
+
+                if response.clicked() {
+                    if let Err(e) = services::launch_godot(&install.path) {
+                        log::error!("Failed to launch Godot: {}", e);
+                    }
+                }
             });
         });
+    });
 }
 
 /// 绘制版本操作菜单
@@ -294,10 +224,7 @@ fn draw_version_menu(ui: &mut egui::Ui, index: usize, state: &mut AppState) {
         ui.separator();
 
         // 删除操作（危险操作）
-        let delete_btn = egui::Button::new(
-            RichText::new("🗑 Remove").color(Color32::from_rgb(220, 53, 69))
-        );
-
+        let delete_btn = danger_button("🗑 Remove");
         if ui.add(delete_btn).clicked() {
             // TODO: 显示确认对话框
             log::warn!("Remove version requested for index {}", index);
@@ -310,30 +237,15 @@ fn draw_version_menu(ui: &mut egui::Ui, index: usize, state: &mut AppState) {
 fn draw_available_section(ui: &mut egui::Ui, state: &mut AppState) {
     ui.vertical(|ui| {
         // 区域标题
-        ui.horizontal(|ui| {
-            ui.label(
-                RichText::new("🌐 Available Versions")
-                    .size(16.0)
-                    .strong()
-            );
+        let available_count = state.available_versions.iter()
+            .filter(|v| !v.is_installed)
+            .count();
+        section_header(ui, state.config.theme, "🌐", "Available Versions", Some(available_count));
 
-            ui.add_space(8.0);
-
-            let available_count = state.available_versions.iter()
-                .filter(|v| !v.is_installed)
-                .count();
-
-            ui.label(
-                RichText::new(format!("({})", available_count))
-                    .small()
-                    .weak()
-            );
-        });
-
-        ui.add_space(8.0);
+        ui.add_space(12.0);
 
         if state.available_versions.is_empty() {
-            draw_empty_available_state(ui);
+            draw_empty_available_state(ui, state.config.theme);
         } else {
             // 按版本分组显示
             let versions: Vec<GodotVersion> = state.available_versions.clone();
@@ -341,7 +253,7 @@ fn draw_available_section(ui: &mut egui::Ui, state: &mut AppState) {
             // Godot 4.x
             draw_version_group(ui, "Godot 4.x", &versions, "4", state);
 
-            ui.add_space(12.0);
+            ui.add_space(16.0);
 
             // Godot 3.x
             draw_version_group(ui, "Godot 3.x", &versions, "3", state);
@@ -368,11 +280,11 @@ fn draw_version_group(
 
     // 可折叠的分组
     ui.collapsing(title, |ui| {
-        ui.add_space(8.0);
+        ui.add_space(12.0);
 
         for version in filtered_versions {
             draw_available_version_card(ui, version, state);
-            ui.add_space(8.0);
+            ui.add_space(12.0);
         }
     });
 }
@@ -381,83 +293,71 @@ fn draw_version_group(
 fn draw_available_version_card(ui: &mut egui::Ui, version: &GodotVersion, state: &mut AppState) {
     let is_downloading = state.downloads_in_progress.contains_key(&version.version);
 
-    egui::Frame::group(ui.style())
-        .inner_margin(12.0)
-        .outer_margin(0.0)
-        .corner_radius(8.0)
-        .stroke(Stroke::new(
-            1.0,
-            ui.style().visuals.widgets.noninteractive.bg_stroke.color
-        ))
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                // 左侧：版本信息
-                ui.vertical(|ui| {
-                    // 第一行：版本号 + 标签
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            RichText::new(&version.version)
-                                .size(16.0)
-                                .strong()
-                        );
+    card_frame(state.config.theme).show(ui, |ui| {
+        ui.horizontal(|ui| {
+            // 左侧：版本信息
+            ui.vertical(|ui| {
+                // 第一行：版本号 + 标签
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(&version.version)
+                            .size(16.0)
+                            .strong()
+                            .color(colors::TEXT_PRIMARY)
+                    );
 
-                        // 变体标签
-                        let (variant_text, variant_color) = match version.variant {
-                            GodotVariant::Mono => ("Mono", Color32::from_rgb(156, 39, 176)),
-                            GodotVariant::Standard => ("Standard", Color32::from_rgb(76, 175, 80)),
-                            GodotVariant::ExportTemplates => ("Export", Color32::from_rgb(255, 152, 0)),
-                        };
+                    ui.add_space(8.0);
 
-                        draw_status_tag(ui, variant_text, variant_color);
+                    // 变体标签
+                    let (variant_text, variant_color) = match version.variant {
+                        GodotVariant::Mono => ("Mono", colors::BADGE_PURPLE),
+                        GodotVariant::Standard => ("Standard", colors::BADGE_GREEN),
+                        GodotVariant::ExportTemplates => ("Export", colors::BADGE_ORANGE),
+                    };
 
-                        // 平台标签
-                        ui.add_space(4.0);
-                        ui.label(
-                            RichText::new(&version.platform)
-                                .small()
-                                .weak()
-                        );
-                    });
+                    status_pill(ui, variant_text, variant_color);
 
                     ui.add_space(4.0);
 
-                    // 第二行：发布日期
-                    ui.label(
-                        RichText::new(format!("📅 Released: {}", version.release_date))
-                            .small()
-                            .weak()
-                    );
+                    // 平台标签
+                    badge(ui, &version.platform, colors::TEXT_MUTED);
                 });
 
-                // 右侧：状态和操作
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if version.is_installed {
-                        // 已安装状态
-                        draw_status_tag(ui, "Installed", Color32::from_rgb(70, 130, 180));
-                    } else if is_downloading {
-                        // 下载中状态
-                        draw_download_progress(ui, &version.version, state);
-                    } else {
-                        // 可下载状态
-                        let download_btn = egui::Button::new("⬇️ Download")
-                            .fill(Color32::from_rgb(70, 130, 180))
-                            .min_size(Vec2::new(100.0, 28.0));
+                ui.add_space(6.0);
 
-                        let mut response = ui.add(download_btn);
-                        let response = response.on_hover_text(format!(
-                            "Download Godot {} from GitHub",
-                            version.version
-                        ));
+                // 第二行：发布日期
+                ui.label(
+                    RichText::new(format!("📅 Released: {}", version.release_date))
+                        .small()
+                        .color(colors::TEXT_SECONDARY)
+                );
+            });
 
-                        if response.clicked() {
-                            if let Some(runtime) = &state.runtime {
-                                services::start_download(version, state, runtime.clone());
-                            }
+            // 右侧：状态和操作
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if version.is_installed {
+                    // 已安装状态
+                    status_pill(ui, "✓ Installed", colors::SUCCESS);
+                } else if is_downloading {
+                    // 下载中状态
+                    draw_download_progress(ui, &version.version, state);
+                } else {
+                    // 可下载状态
+                    let download_btn = primary_button("⬇️ Download", state.config.theme);
+                    let response = ui.add(download_btn).on_hover_text(format!(
+                        "Download Godot {} from GitHub",
+                        version.version
+                    ));
+
+                    if response.clicked() {
+                        if let Some(runtime) = &state.runtime {
+                            services::start_download(version, state, runtime.clone());
                         }
                     }
-                });
+                }
             });
         });
+    });
 }
 
 /// 绘制下载进度
@@ -468,20 +368,18 @@ fn draw_download_progress(ui: &mut egui::Ui, version_key: &str, state: &mut AppS
     if let Some(progress) = progress {
         ui.vertical(|ui| {
             // 进度条
-            ui.add(
-                egui::ProgressBar::new(progress)
-                    .desired_width(120.0)
-                    .text(format!("{:.0}%", progress * 100.0))
-                    .animate(true)
-            );
+            let progress_bar = egui::ProgressBar::new(progress)
+                .desired_width(120.0)
+                .text(format!("{:.0}%", progress * 100.0))
+                .animate(true)
+                .fill(colors::ACCENT_BLUE);
 
-            ui.add_space(4.0);
+            ui.add(progress_bar);
+
+            ui.add_space(6.0);
 
             // 取消按钮
-            let cancel_btn = egui::Button::new("Cancel")
-                .small()
-                .fill(Color32::from_rgb(220, 53, 69));
-
+            let cancel_btn = danger_button("Cancel");
             if ui.add(cancel_btn).clicked() {
                 services::cancel_download(version_key, state);
             }
@@ -489,60 +387,19 @@ fn draw_download_progress(ui: &mut egui::Ui, version_key: &str, state: &mut AppS
     }
 }
 
-/// 绘制状态标签
-fn draw_status_tag(ui: &mut egui::Ui, text: &str, color: Color32) {
-    ui.label(
-        RichText::new(format!(" {} ", text))
-            .small()
-            .background_color(color.linear_multiply(0.3))
-            .color(color)
-    );
-}
-
 /// 绘制空状态（可用版本）
-fn draw_empty_available_state(ui: &mut egui::Ui) {
-    egui::Frame::group(ui.style())
-        .inner_margin(24.0)
-        .outer_margin(0.0)
-        .corner_radius(8.0)
-        .fill(Color32::from_rgba_unmultiplied(128, 128, 128, 15))
-        .show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(16.0);
-
-                ui.label(
-                    RichText::new("🌐")
-                        .size(48.0)
-                        .weak()
-                );
-
-                ui.add_space(12.0);
-
-                ui.label(
-                    RichText::new("No Versions Available")
-                        .size(16.0)
-                        .strong()
-                );
-
-                ui.add_space(8.0);
-
-                ui.label(
-                    RichText::new("Unable to fetch version list from GitHub")
-                        .weak()
-                );
-
-                ui.add_space(16.0);
-
-                let refresh_btn = egui::Button::new("🔄 Refresh")
-                    .fill(Color32::from_rgb(70, 130, 180));
-
-                if ui.add(refresh_btn).clicked() {
-                    log::info!("Refresh requested");
-                }
-
-                ui.add_space(8.0);
-            });
-        });
+fn draw_empty_available_state(ui: &mut egui::Ui, theme: Theme) {
+    empty_state(
+        ui,
+        theme,
+        "🌐",
+        "No Versions Available",
+        "Unable to fetch version list from GitHub",
+        Some("🔄 Refresh"),
+        Some(&mut || {
+            log::info!("Refresh requested");
+        })
+    );
 }
 
 /// 打开文件夹（跨平台）

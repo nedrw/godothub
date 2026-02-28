@@ -1,90 +1,111 @@
 // Sidebar - 侧边栏 UI 组件
-// 优化版本：添加图标、改进视觉层次、增强交互反馈
+// 优化版本：使用统一样式系统、改进视觉层次、增强交互反馈
 
-use egui::{Color32, RichText, Ui, Vec2};
+use egui::{Align, Layout, RichText, Ui, Vec2};
 
 use crate::state::{AppState, MainTab};
+use crate::ui::style::{colors, spacing};
 
 /// 绘制侧边栏
 pub fn draw_sidebar(ui: &mut Ui, state: &mut AppState) {
-    // 设置侧边栏内边距
-    ui.set_min_width(200.0);
+    // 设置侧边栏样式
+    ui.set_min_width(spacing::SIDEBAR_WIDTH_EXPANDED);
+    ui.set_max_width(spacing::SIDEBAR_WIDTH_EXPANDED);
 
-    // 应用标题区
-    draw_app_header(ui);
+    // 侧边栏容器（使用侧边栏背景色）
+    egui::Frame::NONE
+        .fill(colors::BG_SIDEBAR)
+        .inner_margin(egui::Margin::same(0))
+        .show(ui, |ui| {
+            ui.with_layout(Layout::top_down(Align::Min), |ui| {
+                // 应用标题区
+                draw_app_header(ui);
 
-    ui.add_space(8.0);
-    ui.separator();
-    ui.add_space(8.0);
+                ui.add_space(8.0);
+                draw_separator(ui);
+                ui.add_space(12.0);
 
-    // 导航区
-    draw_navigation_section(ui, state);
+                // 导航区
+                draw_navigation_section(ui, state);
 
-    ui.add_space(16.0);
-    ui.separator();
-    ui.add_space(8.0);
+                ui.add_space(16.0);
+                draw_separator(ui);
+                ui.add_space(12.0);
 
-    // 统计信息区
-    draw_statistics_section(ui, state);
+                // 统计信息区
+                draw_statistics_section(ui, state);
+            });
 
-    // 底部下载按钮（固定在底部）
-    ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-        ui.add_space(16.0);
-        draw_download_button(ui, state);
-        ui.add_space(8.0);
+            // 底部下载按钮（固定在底部）
+            ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
+                ui.add_space(8.0);
 
-        // 版本信息
-        ui.label(
-            RichText::new("v0.1.0")
-                .small()
-                .weak()
-        );
-    });
+                // 版本信息
+                ui.label(
+                    RichText::new("v0.1.0")
+                        .small()
+                        .color(colors::TEXT_MUTED)
+                );
+
+                ui.add_space(12.0);
+                draw_download_button(ui, state);
+                ui.add_space(16.0);
+            });
+        });
 }
 
 /// 绘制应用标题
 fn draw_app_header(ui: &mut Ui) {
-    ui.add_space(12.0);
+    ui.add_space(16.0);
 
-    // 应用图标和名称
     ui.horizontal(|ui| {
-        ui.add_space(8.0);
+        ui.add_space(16.0);
 
         // 使用 emoji 作为图标
         ui.label(
             RichText::new("🎮")
-                .size(28.0)
+                .size(32.0)
         );
+
+        ui.add_space(8.0);
 
         ui.vertical(|ui| {
             ui.label(
                 RichText::new("Godot Hub")
-                    .size(18.0)
+                    .size(20.0)
                     .strong()
+                    .color(colors::TEXT_PRIMARY)
             );
             ui.label(
                 RichText::new("Engine Manager")
-                    .small()
-                    .weak()
+                    .size(12.0)
+                    .color(colors::TEXT_SECONDARY)
             );
         });
     });
+
+    ui.add_space(4.0);
 }
 
 /// 绘制导航区
 fn draw_navigation_section(ui: &mut Ui, state: &mut AppState) {
     // 导航标题
-    ui.label(
-        RichText::new("NAVIGATION")
-            .small()
-            .weak()
-    );
+    ui.horizontal(|ui| {
+        ui.add_space(16.0);
+        ui.label(
+            RichText::new("NAVIGATION")
+                .size(11.0)
+                .color(colors::TEXT_MUTED)
+        );
+    });
+
     ui.add_space(8.0);
 
     // 导航按钮
     draw_nav_button(
         ui,
-        "📦  Versions",
+        "📦",
+        "Versions",
         "Manage Godot engine installations",
         MainTab::Versions,
         state
@@ -92,7 +113,8 @@ fn draw_navigation_section(ui: &mut Ui, state: &mut AppState) {
 
     draw_nav_button(
         ui,
-        "📁  Projects",
+        "📁",
+        "Projects",
         "Browse and manage your projects",
         MainTab::Projects,
         state
@@ -100,7 +122,8 @@ fn draw_navigation_section(ui: &mut Ui, state: &mut AppState) {
 
     draw_nav_button(
         ui,
-        "⚙️  Settings",
+        "⚙️",
+        "Settings",
         "Configure application preferences",
         MainTab::Settings,
         state
@@ -110,6 +133,7 @@ fn draw_navigation_section(ui: &mut Ui, state: &mut AppState) {
 /// 绘制导航按钮
 fn draw_nav_button(
     ui: &mut Ui,
+    icon: &str,
     text: &str,
     tooltip: &str,
     tab: MainTab,
@@ -117,29 +141,48 @@ fn draw_nav_button(
 ) {
     let is_selected = state.current_tab == tab;
 
-    // 根据选中状态设置不同的样式
-    let button = if is_selected {
-        egui::Button::new(
-            RichText::new(text)
-                .strong()
-                .color(Color32::WHITE)
-        )
-        .fill(Color32::from_rgb(70, 130, 180))
-        .min_size(Vec2::new(ui.available_width() - 16.0, 36.0))
-    } else {
-        egui::Button::new(RichText::new(text))
-        .fill(Color32::TRANSPARENT)
-        .min_size(Vec2::new(ui.available_width() - 16.0, 36.0))
-    };
-
-    // 添加左侧缩进
     ui.horizontal(|ui| {
         ui.add_space(8.0);
 
-        let mut response = ui.add(button);
+        // 创建按钮容器
+        let button_frame = egui::Frame::NONE
+            .fill(if is_selected { colors::BG_HOVER } else { colors::BG_SIDEBAR })
+            .corner_radius(8.0)
+            .inner_margin(egui::Margin::symmetric(12, 10));
 
-        // 添加工具提示
+        let response = button_frame.show(ui, |ui| {
+            ui.horizontal(|ui| {
+                // 图标
+                ui.label(
+                    RichText::new(icon)
+                        .size(20.0)
+                );
+
+                ui.add_space(8.0);
+
+                // 文字
+                ui.label(
+                    RichText::new(text)
+                        .size(14.0)
+                        .color(if is_selected {
+                            colors::ACCENT_BLUE
+                        } else {
+                            colors::TEXT_PRIMARY
+                        })
+                        .strong()
+                );
+            });
+        });
+
+        // 添加交互效果
+        let response = response.response.interact(egui::Sense::click());
+
         let response = response.on_hover_text(tooltip);
+
+        // 悬停时的视觉效果
+        if response.hovered() {
+            ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+        }
 
         if response.clicked() {
             state.current_tab = tab;
@@ -152,20 +195,28 @@ fn draw_nav_button(
 /// 绘制统计信息区
 fn draw_statistics_section(ui: &mut Ui, state: &AppState) {
     // 统计标题
-    ui.label(
-        RichText::new("STATISTICS")
-            .small()
-            .weak()
-    );
-    ui.add_space(8.0);
+    ui.horizontal(|ui| {
+        ui.add_space(16.0);
+        ui.label(
+            RichText::new("STATISTICS")
+                .size(11.0)
+                .color(colors::TEXT_MUTED)
+        );
+    });
+
+    ui.add_space(12.0);
 
     // 已安装版本统计
-    draw_stat_card(
-        ui,
-        "Installed",
-        state.installed_versions.len().to_string().as_str(),
-        "📦"
-    );
+    ui.horizontal(|ui| {
+        ui.add_space(8.0);
+        draw_stat_card_compact(
+            ui,
+            "Installed",
+            state.installed_versions.len().to_string().as_str(),
+            "📦",
+            colors::ACCENT_BLUE
+        );
+    });
 
     ui.add_space(8.0);
 
@@ -173,25 +224,33 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState) {
     let available_count = state.available_versions.iter()
         .filter(|v| !v.is_installed)
         .count();
-    draw_stat_card(
-        ui,
-        "Available",
-        available_count.to_string().as_str(),
-        "🌐"
-    );
 
-    ui.add_space(8.0);
+    ui.horizontal(|ui| {
+        ui.add_space(8.0);
+        draw_stat_card_compact(
+            ui,
+            "Available",
+            available_count.to_string().as_str(),
+            "🌐",
+            colors::BADGE_GREEN
+        );
+    });
 
     // 下载中统计
     let downloading_count = state.downloads_in_progress.len();
     if downloading_count > 0 {
-        draw_stat_card(
-            ui,
-            "Downloading",
-            downloading_count.to_string().as_str(),
-            "⬇️"
-        );
         ui.add_space(8.0);
+
+        ui.horizontal(|ui| {
+            ui.add_space(8.0);
+            draw_stat_card_compact(
+                ui,
+                "Downloading",
+                downloading_count.to_string().as_str(),
+                "⬇️",
+                colors::BADGE_ORANGE
+            );
+        });
     }
 
     // 收藏统计
@@ -199,41 +258,66 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState) {
         .filter(|v| v.is_favorite)
         .count();
     if favorite_count > 0 {
-        draw_stat_card(
-            ui,
-            "Favorites",
-            favorite_count.to_string().as_str(),
-            "⭐"
-        );
+        ui.add_space(8.0);
+
+        ui.horizontal(|ui| {
+            ui.add_space(8.0);
+            draw_stat_card_compact(
+                ui,
+                "Favorites",
+                favorite_count.to_string().as_str(),
+                "⭐",
+                colors::WARNING
+            );
+        });
     }
 }
 
-/// 绘制统计卡片
-fn draw_stat_card(ui: &mut Ui, label: &str, value: &str, icon: &str) {
-    egui::Frame::group(ui.style())
-        .inner_margin(10.0)
-        .outer_margin(0.0)
-        .corner_radius(6.0)
-        .fill(Color32::from_rgba_unmultiplied(128, 128, 128, 20))
+/// 绘制紧凑型统计卡片
+fn draw_stat_card_compact(ui: &mut Ui, label: &str, value: &str, icon: &str, color: egui::Color32) {
+    egui::Frame::NONE
+        .fill(colors::BG_SECONDARY)
+        .corner_radius(8.0)
+        .inner_margin(egui::Margin::symmetric(12, 8))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
+                // 左侧颜色条
+                let color_bar = egui::Frame::NONE
+                    .fill(color)
+                    .corner_radius(4.0)
+                    .inner_margin(egui::Margin::symmetric(2, 12));
+
+                color_bar.show(ui, |ui| {
+                    ui.set_width(4.0);
+                    ui.set_height(24.0);
+                });
+
+                ui.add_space(8.0);
+
+                // 图标
                 ui.label(
                     RichText::new(icon)
-                        .size(20.0)
+                        .size(18.0)
                 );
 
-                ui.vertical(|ui| {
-                    ui.label(
-                        RichText::new(value)
-                            .size(18.0)
-                            .strong()
-                    );
-                    ui.label(
-                        RichText::new(label)
-                            .small()
-                            .weak()
-                    );
-                });
+                ui.add_space(4.0);
+
+                // 数值
+                ui.label(
+                    RichText::new(value)
+                        .size(16.0)
+                        .strong()
+                        .color(colors::TEXT_PRIMARY)
+                );
+
+                ui.add_space(4.0);
+
+                // 标签
+                ui.label(
+                    RichText::new(label)
+                        .size(12.0)
+                        .color(colors::TEXT_SECONDARY)
+                );
             });
         });
 }
@@ -246,12 +330,14 @@ fn draw_download_button(ui: &mut Ui, state: &mut AppState) {
         // 主下载按钮
         let download_btn = egui::Button::new(
             RichText::new("⬇️  Download New Version")
+                .size(13.0)
                 .strong()
+                .color(colors::TEXT_PRIMARY)
         )
-        .fill(Color32::from_rgb(70, 130, 180))
-        .min_size(Vec2::new(ui.available_width() - 16.0, 40.0));
+        .fill(colors::ACCENT_BLUE)
+        .min_size(Vec2::new(spacing::SIDEBAR_WIDTH_EXPANDED - 32.0, spacing::BUTTON_HEIGHT_LARGE));
 
-        let mut response = ui.add(download_btn);
+        let response = ui.add(download_btn);
 
         let response = response.on_hover_text(
             "Download new Godot versions from GitHub releases"
@@ -260,5 +346,21 @@ fn draw_download_button(ui: &mut Ui, state: &mut AppState) {
         if response.clicked() {
             state.show_download_dialog = true;
         }
+    });
+}
+
+/// 绘制分隔线
+fn draw_separator(ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        ui.add_space(16.0);
+
+        let separator = egui::Frame::NONE
+            .fill(colors::BORDER)
+            .inner_margin(egui::Margin::symmetric(0, 0));
+
+        separator.show(ui, |ui| {
+            ui.set_width(spacing::SIDEBAR_WIDTH_EXPANDED - 32.0);
+            ui.set_height(1.0);
+        });
     });
 }

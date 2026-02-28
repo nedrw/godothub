@@ -5,5 +5,5 @@ pub mod github_api;
 pub mod launcher;
 
 pub use download::{start_download, cancel_download};
-pub use github_api::{fetch_all_versions, fetch_all_versions_with_source, GitHubApi, GitHubRelease, Platform};
+pub use github_api::fetch_all_versions_with_source;
 pub use launcher::launch_godot;
