@@ -3,6 +3,7 @@
 
 use egui::{Align, Layout, RichText, Ui, Vec2};
 
+use crate::services::download_state;
 use crate::state::{AppState, MainTab};
 use crate::ui::style::{ThemeColors, spacing};
 
@@ -245,8 +246,14 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState, colors: &ThemeColors) 
         );
     });
 
-    // 下载中统计
-    let downloading_count = state.downloads_in_progress.len();
+    // 下载中统计（排除特殊状态：错误、解压、完成）
+    let downloading_count = state.downloads_in_progress.iter()
+        .filter(|(key, _)| {
+            !key.ends_with("_error")
+                && !key.ends_with("_extracting")
+                && !key.ends_with("_complete")
+        })
+        .count();
     if downloading_count > 0 {
         ui.add_space(8.0);
 

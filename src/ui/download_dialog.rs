@@ -4,7 +4,7 @@
 use egui::{Align2, RichText, ScrollArea, Ui, Vec2, Window};
 
 use crate::models::GodotVersion;
-use crate::services;
+use crate::services::{self, download_state};
 use crate::state::AppState;
 use crate::ui::style::ThemeColors;
 
@@ -280,8 +280,20 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
 }
 
 /// 绘制单个版本项
+/// 创建版本标识键（与 download.rs 中的 create_version_key 保持一致）
+fn create_version_key(version: &GodotVersion) -> String {
+    match version.variant {
+        crate::models::GodotVariant::Mono => format!("{}-mono", version.version),
+        _ => version.version.clone(),
+    }
+}
+
 fn draw_version_item(ui: &mut Ui, version: &GodotVersion, state: &mut AppState, colors: &ThemeColors) {
-    let is_downloading = state.downloads_in_progress.contains_key(&version.version);
+    let version_key = create_version_key(version);
+    let is_downloading = state.downloads_in_progress.contains_key(&version_key)
+        || state.downloads_in_progress.contains_key(&download_state::error_key(&version_key))
+        || state.downloads_in_progress.contains_key(&download_state::extracting_key(&version_key))
+        || state.downloads_in_progress.contains_key(&download_state::complete_key(&version_key));
 
     egui::Frame::group(ui.style())
         .inner_margin(10.0)
@@ -354,7 +366,7 @@ fn draw_version_item(ui: &mut Ui, version: &GodotVersion, state: &mut AppState, 
                         );
                     } else if is_downloading {
                         // 下载中状态
-                        draw_downloading_status(ui, &version.version, state, colors);
+                        draw_downloading_status(ui, &version_key, state, colors);
                     } else {
                         // 可下载状态
                         draw_download_button(ui, version, state, colors);
@@ -400,10 +412,103 @@ fn draw_download_button(ui: &mut Ui, version: &GodotVersion, state: &mut AppStat
 
 /// 绘制下载中状态
 fn draw_downloading_status(ui: &mut Ui, version_key: &str, state: &mut AppState, colors: &ThemeColors) {
-    // 先获取进度值的副本
-    let progress = state.downloads_in_progress.get(version_key).copied();
+    // 先获取各种状态
+    let error_key = download_state::error_key(version_key);
+    let extracting_key = download_state::extracting_key(version_key);
+    let complete_key = download_state::complete_key(version_key);
 
-    if let Some(progress) = progress {
+    let progress = state.downloads_in_progress.get(version_key).copied();
+    let error_progress = state.downloads_in_progress.get(&error_key).copied();
+    let is_extracting = state.downloads_in_progress.contains_key(&extracting_key);
+    let is_complete = state.downloads_in_progress.contains_key(&complete_key);
+
+    // 检查是否为错误状态
+    let is_error = error_progress.map(download_state::is_error).unwrap_or(false);
+
+    if is_error {
+        // 显示错误状态
+        ui.vertical(|ui| {
+            ui.label(
+                RichText::new("❌ Failed")
+                    .color(colors.error)
+                    .strong()
+            );
+
+            ui.add_space(4.0);
+
+            // 重试按钮
+            let retry_btn = egui::Button::new(
+                RichText::new("🔄 Retry").color(egui::Color32::WHITE)
+            )
+            .small()
+            .fill(colors.accent_blue);
+
+            if ui.add(retry_btn).clicked() {
+                // 移除错误状态标记
+                state.downloads_in_progress.remove(&download_state::error_key(version_key));
+                // 重新开始下载
+                if let Some(runtime) = &state.runtime {
+                    let version_clone = state.available_versions.iter().find(|v| {
+                        let key = match v.variant {
+                            crate::models::GodotVariant::Mono => format!("{}-mono", v.version),
+                            _ => v.version.clone(),
+                        };
+                        key == version_key
+                    }).cloned();
+                    if let Some(available_version) = version_clone {
+                        services::start_download(&available_version, state, runtime.clone());
+                    }
+                }
+            }
+
+            ui.add_space(4.0);
+
+            // 移除按钮
+            let remove_btn = egui::Button::new(
+                RichText::new("Remove").color(egui::Color32::WHITE)
+            )
+            .small()
+            .fill(colors.error);
+
+            if ui.add(remove_btn).clicked() {
+                services::cancel_download(version_key, state);
+                log::info!("Download removed: {}", version_key);
+            }
+        });
+    } else if is_extracting {
+        // 显示解压中状态
+        ui.vertical(|ui| {
+            ui.label(
+                RichText::new("📦 Extracting...")
+                    .color(colors.accent_blue)
+                    .strong()
+            );
+
+            ui.add_space(4.0);
+
+            // 取消按钮
+            let cancel_btn = egui::Button::new(
+                RichText::new("Cancel").color(egui::Color32::WHITE)
+            )
+            .small()
+            .fill(colors.warning);
+
+            if ui.add(cancel_btn).clicked() {
+                services::cancel_download(version_key, state);
+                log::info!("Extraction cancelled: {}", version_key);
+            }
+        });
+    } else if is_complete {
+        // 显示完成状态（短暂显示后会被安装状态替代）
+        ui.vertical(|ui| {
+            ui.label(
+                RichText::new("✅ Complete!")
+                    .color(colors.success)
+                    .strong()
+            );
+        });
+    } else if let Some(progress) = progress {
+        // 正常下载进度
         ui.vertical(|ui| {
             // 进度条
             ui.add(

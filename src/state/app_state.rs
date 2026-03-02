@@ -1,7 +1,7 @@
 // AppState - 应用程序状态
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
@@ -68,6 +68,21 @@ pub struct AppState {
     /// 共享状态指针，用于异步任务更新进度（不序列化）
     #[serde(skip)]
     pub shared_state: Option<Arc<Mutex<AppState>>>,
+    /// 删除确认对话框状态（不序列化）
+    #[serde(skip)]
+    pub delete_confirm: Option<DeleteConfirmState>,
+    /// 下载取消令牌 (版本标识 -> 取消标志)（不序列化）
+    #[serde(skip)]
+    pub cancellation_tokens: HashMap<String, Arc<AtomicBool>>,
+}
+
+/// 删除确认对话框状态
+#[derive(Debug, Clone)]
+pub struct DeleteConfirmState {
+    /// 要删除的版本索引
+    pub version_index: usize,
+    /// 要删除的版本信息（用于显示）
+    pub version_info: String,
 }
 
 /// 手动实现 Clone，跳过无法克隆的字段
@@ -85,6 +100,8 @@ impl Clone for AppState {
             version_refresh_state: self.version_refresh_state.clone(),
             refresh_receiver: None, // Receiver 不支持 Clone
             shared_state: None, // 避免循环引用
+            delete_confirm: None,
+            cancellation_tokens: HashMap::new(), // 克隆时不保留取消令牌
         }
     }
 }
@@ -114,6 +131,8 @@ impl Default for AppState {
             version_refresh_state: VersionRefreshState::default(),
             refresh_receiver: None,
             shared_state: None,
+            delete_confirm: None,
+            cancellation_tokens: HashMap::new(),
         }
     }
 }

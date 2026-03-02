@@ -462,6 +462,112 @@ pub enum GodotHubError {
 
 ## 10. 最近更新
 
+### v0.1.5 (2025-03-03) - 下载取消功能修复
+
+#### 问题修复
+- ✅ **修复下载时点击取消按钮无效的问题**：之前点击取消只是从 UI 状态中移除进度记录，但后台的异步下载任务仍在继续运行
+  - 新增 `cancellation_tokens: HashMap<String, Arc<AtomicBool>>` 到 `AppState`，用于管理每个下载任务的取消标志
+  - 在 `download_file` 函数的流式下载循环中检查取消标志，如果被取消则立即停止下载并删除未完成的文件
+  - 在 `extract_zip` 函数中添加取消检查，如果被取消则停止解压并清理已解压的目录
+
+- ✅ **修复失败后点击移除按钮界面没有更新的问题**：
+  - 优化 `draw_downloading_status` 函数，正确处理错误、下载中、解压中、完成等所有状态
+  - 扩展 `is_downloading` 检查范围，包括 error、extracting、complete 状态
+  - 点击移除按钮后调用 `cancel_download` 清理所有相关状态
+
+#### 技术改进
+- ✅ 新增 `CancellationToken` 类型别名 (`Arc<AtomicBool>`)，用于跨线程传递取消信号
+- ✅ `download_file`、`download_file_with_fallback`、`extract_zip` 函数新增 `cancellation_token` 参数
+- ✅ 取消下载时自动删除未完成的临时文件，避免占用磁盘空间
+- ✅ UI 新增解压中状态显示 (`📦 Extracting...`)，并支持取消解压操作
+- ✅ UI 新增完成状态显示 (`✅ Complete!`)，让用户知道下载已完成即将显示安装状态
+
+#### 架构变更
+```rust
+// AppState 新增字段
+pub struct AppState {
+    // ... 其他字段 ...
+    /// 下载取消令牌 (版本标识 -> 取消标志)
+    pub cancellation_tokens: HashMap<String, Arc<AtomicBool>>,
+}
+
+// download_and_install 新增参数
+pub async fn download_and_install(
+    version: &GodotVersion,
+    config: &AppConfig,
+    progress_callback: Option<ProgressCallback>,
+    cancellation_token: CancellationToken,  // 新增
+) -> Result<PathBuf, String>
+```
+
+#### 取消机制说明
+1. 用户点击取消按钮
+2. `cancel_download` 设置对应版本的 `AtomicBool` 为 `true`
+3. 下载线程在每次读取数据块时检查该标志
+4. 如果检测到取消，删除临时文件并返回错误
+5. UI 清理所有相关状态（进度、错误标记、解压标记、完成标记）
+
+### v0.1.4 (2025-03-03) - 下载进度与解压修复 + 删除功能
+
+#### 新增功能
+- ✅ **删除引擎版本功能**：添加删除确认对话框，用户确认后永久删除引擎文件
+  - 点击版本卡片右下角的 "⋮" 菜单 → "Remove" 触发删除
+  - 显示确认对话框，列出要删除的版本信息
+  - 确认后从文件系统中删除整个安装目录
+  - 自动更新已安装版本列表和可用版本状态
+
+#### 问题修复
+- ✅ **修复下载进度条不更新问题**：之前进度条一直停在 0%，原因是版本 key 不匹配。对于 Mono 版本，下载进度使用的 key 是 `version-mono`，但 UI 检查的是 `version`
+- ✅ **修复解压时显示问题**：下载完成后不再显示进度条，改为显示 "📦 Extracting..." 提示
+- ✅ **修复安装完成后界面不更新问题**：之前下载完成后 `installed_versions` 状态不会刷新，添加了 `sync_download_progress()` 方法在每帧同步共享状态到主状态
+- ✅ **修复下载失败后进度条不消失问题**：下载失败时使用 ERROR 状态标记，UI 检测到错误状态后显示 "❌ Failed" 并提供重试和移除按钮
+
+#### 技术改进
+- ✅ 新增 `create_version_key()` 函数，在 UI 层生成正确的版本标识键（与 download.rs 保持一致）
+- ✅ 新增 `sync_download_progress()` 方法，在主循环中同步异步任务的进度和完成状态
+- ✅ 优化版本匹配逻辑，在更新安装状态时同时检查 `version` 和 `variant`，确保 Mono 版本正确识别
+- ✅ **新增 `download_state` 模块**：将下载状态常量统一管理，提高代码可读性和可维护性
+
+#### 架构优化
+- ✅ 改进共享状态同步机制，确保异步下载任务的状态变化能够实时反映到 UI 上
+- ✅ 统一版本 key 生成逻辑，避免 UI 层和 Service 层不一致导致的进度显示问题
+
+#### 下载状态常量
+为统一管理下载状态，新增 `download_state` 模块定义以下常量：
+
+```rust
+pub mod download_state {
+    /// 正常下载进度范围: 0.0 - 1.0
+    pub const PROGRESS_MIN: f32 = 0.0;
+    pub const PROGRESS_MAX: f32 = 1.0;
+
+    /// 下载失败的标记 (key: "{version}_error", value: ERROR)
+    pub const ERROR: f32 = -1.0;
+
+    /// 解压中的标记 (key: "{version}_extracting", value: EXTRACTING)
+    pub const EXTRACTING: f32 = -2.0;
+
+    /// 安装完成的标记 (key: "{version}_complete", value: COMPLETE)
+    pub const COMPLETE: f32 = -3.0;
+
+    /// 辅助函数
+    pub fn error_key(version_key: &str) -> String;
+    pub fn extracting_key(version_key: &str) -> String;
+    pub fn complete_key(version_key: &str) -> String;
+    pub fn is_error(progress: f32) -> bool;
+    pub fn is_extracting(progress: f32) -> bool;
+    pub fn is_complete(progress: f32) -> bool;
+}
+```
+
+#### 状态说明
+| 状态 | Key | Value | 说明 |
+|------|-----|-------|------|
+| 下载进度 | `{version}` | 0.0-1.0 | 正常下载进度 |
+| 错误 | `{version}_error` | -1.0 | 下载失败 |
+| 解压中 | `{version}_extracting` | -2.0 | 正在解压 |
+| 安装完成 | `{version}_complete` | -3.0 | 安装完成 |
+
 ### v0.1.3 (2025-03-02) - 中国镜像支持与地区自动检测
 
 #### 问题修复

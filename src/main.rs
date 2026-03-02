@@ -52,8 +52,9 @@ impl App for GodotHubApp {
         // 检查并处理版本刷新结果
         self.state.poll_refresh_result();
 
-        // 注意：不再模拟假的进度条
-        // 进度现在由 download 服务通过共享状态真实更新
+        // 从共享状态同步下载进度到主状态
+        // 这样 UI 可以实时显示异步任务的进度和完成状态
+        self.state.sync_download_progress();
 
         // 请求定期重绘
         ctx.request_repaint_after(Duration::from_millis(100));

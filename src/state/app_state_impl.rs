@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 
 use crate::models::{GodotInstall, GodotVariant};
 use super::{AppState, RefreshResult};
@@ -155,21 +156,88 @@ impl AppState {
         }
     }
 
-    /// 移除已安装的版本
-    pub fn remove_installed_version(&mut self, index: usize) -> Option<GodotInstall> {
-        if index < self.installed_versions.len() {
-            let removed = self.installed_versions.remove(index);
-            // 更新可用版本状态
-            for available in &mut self.available_versions {
-                if available.version == removed.version && available.variant == removed.variant {
-                    available.is_installed = false;
-                    available.install_path = None;
-                }
-            }
-            Some(removed)
-        } else {
-            None
+    /// 移除已安装的版本（同步版本，删除文件）
+    /// 返回删除的版本信息，如果失败返回错误信息
+    pub fn remove_installed_version(&mut self, index: usize) -> Result<GodotInstall, String> {
+        if index >= self.installed_versions.len() {
+            return Err("Invalid index".to_string());
         }
+
+        let removed = self.installed_versions.remove(index);
+
+        // 获取要删除的目录路径
+        let install_path = removed.path.parent().unwrap_or(&removed.path).to_path_buf();
+
+        // 删除安装目录
+        if install_path.exists() {
+            log::info!("Deleting installation directory: {}", install_path.display());
+            std::fs::remove_dir_all(&install_path)
+                .map_err(|e| format!("Failed to delete directory: {}", e))?;
+            log::info!("Successfully deleted: {}", install_path.display());
+        }
+
+        // 更新可用版本状态
+        for available in &mut self.available_versions {
+            if available.version == removed.version && available.variant == removed.variant {
+                available.is_installed = false;
+                available.install_path = None;
+            }
+        }
+
+        Ok(removed)
+    }
+
+    /// 异步移除已安装的版本（带进度回调）
+    pub async fn remove_installed_version_async(
+        &mut self,
+        index: usize,
+        progress_callback: Option<Arc<dyn Fn(f32, &str) + Send + Sync>>,
+    ) -> Result<GodotInstall, String> {
+        if index >= self.installed_versions.len() {
+            return Err("Invalid index".to_string());
+        }
+
+        let removed = self.installed_versions.remove(index);
+
+        // 获取要删除的目录路径
+        let install_path = removed.path.parent().unwrap_or(&removed.path).to_path_buf();
+
+        // 报告开始删除
+        if let Some(ref cb) = progress_callback {
+            cb(0.0, "Preparing to delete...");
+        }
+
+        // 异步删除安装目录
+        if install_path.exists() {
+            log::info!("Deleting installation directory: {}", install_path.display());
+
+            let install_path_clone = install_path.clone();
+
+            // 使用 spawn_blocking 在后台线程执行文件删除
+            tokio::task::spawn_blocking(move || {
+                std::fs::remove_dir_all(&install_path_clone)
+            })
+            .await
+            .map_err(|e| format!("Failed to delete directory: {}", e))?
+            .map_err(|e| format!("Failed to delete directory: {}", e))?;
+
+            log::info!("Successfully deleted: {}", install_path.display());
+        }
+
+        // 报告删除完成
+        if let Some(ref cb) = progress_callback {
+            cb(1.0, "Deletion complete");
+        }
+
+        // 更新可用版本状态
+        for available in &mut self.available_versions {
+            if available.version == removed.version && available.variant == removed.variant {
+                available.is_installed = false;
+                available.install_path = None;
+            }
+        }
+
+        Ok(removed)
     }
 
     /// 获取已安装版本数量
@@ -280,6 +348,57 @@ impl AppState {
                 log::error!("Failed to fetch version list: {}", e);
                 self.version_refresh_state.last_error = Some(e);
                 // 不修改 available_versions，保持原状（可能为空）
+            }
+        }
+    }
+
+    /// 从共享状态同步下载进度到主状态
+    /// 供 UI 每帧调用以获取异步任务的进度和完成状态
+    pub fn sync_download_progress(&mut self) {
+        if let Some(ref shared) = self.shared_state {
+            if let Ok(mut s) = shared.lock() {
+                // 收集需要清理的标记
+                let mut keys_to_remove: Vec<String> = Vec::new();
+
+                // 同步下载进度
+                for (key, progress) in &s.downloads_in_progress {
+                    self.downloads_in_progress.insert(key.clone(), *progress);
+
+                    // 检查是否有完成标记，如果有则需要清理
+                    if key.ends_with("_complete") {
+                        keys_to_remove.push(key.clone());
+                    }
+                }
+
+                // 同步已安装版本列表（检查是否有新安装完成）
+                for install in &s.installed_versions {
+                    if !self.installed_versions.iter().any(|i|
+                        i.version == install.version && i.variant == install.variant)
+                    {
+                        self.installed_versions.push(install.clone());
+                    }
+                }
+
+                // 同步可用版本的安装状态
+                for available in &mut self.available_versions {
+                    let is_installed = s.installed_versions.iter().any(|i|
+                        i.version == available.version && i.variant == available.variant
+                    );
+                    available.is_installed = is_installed;
+                    if is_installed {
+                        if let Some(installed) = s.installed_versions.iter()
+                            .find(|i| i.version == available.version && i.variant == available.variant)
+                        {
+                            available.install_path = Some(installed.path.clone());
+                        }
+                    }
+                }
+
+                // 清理完成标记
+                for key in keys_to_remove {
+                    s.downloads_in_progress.remove(&key);
+                    self.downloads_in_progress.remove(&key);
+                }
             }
         }
     }

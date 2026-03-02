@@ -4,7 +4,7 @@
 use egui::{RichText, ScrollArea, Stroke, Vec2};
 
 use crate::models::{GodotInstall, GodotVariant, GodotVersion};
-use crate::services;
+use crate::services::{self, download_state};
 use crate::state::{AppState, Theme};
 use crate::ui::style::{ThemeColors, spacing, card_frame, section_header, panel_header,
                        primary_button, success_button, danger_button, badge,
@@ -12,6 +12,8 @@ use crate::ui::style::{ThemeColors, spacing, card_frame, section_header, panel_h
 
 /// 绘制版本管理面板
 pub fn draw_versions_panel(ui: &mut egui::Ui, state: &mut AppState) {
+    // 先收集需要显示的删除确认对话框信息（避免借用冲突）
+    let delete_confirm = state.delete_confirm.clone();
     let theme = state.config.theme;
     let colors = ThemeColors::from_theme(theme);
 
@@ -37,6 +39,93 @@ pub fn draw_versions_panel(ui: &mut egui::Ui, state: &mut AppState) {
             draw_available_section(ui, state, &colors);
 
             ui.add_space(16.0);
+        });
+
+    // 显示删除确认对话框
+    if let Some(ref confirm) = delete_confirm {
+        draw_delete_confirm_dialog(ui.ctx(), confirm, state, &colors);
+    }
+}
+
+/// 绘制删除确认对话框
+fn draw_delete_confirm_dialog(
+    ctx: &egui::Context,
+    delete_confirm: &crate::state::DeleteConfirmState,
+    state: &mut AppState,
+    colors: &ThemeColors,
+) {
+    egui::Window::new("Delete Confirmation")
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .show(ctx, |ui| {
+            ui.vertical(|ui| {
+                // 警告图标
+                ui.label(
+                    RichText::new("⚠️")
+                        .size(48.0)
+                );
+
+                ui.add_space(12.0);
+
+                // 标题
+                ui.label(
+                    RichText::new("Delete Godot Version?")
+                        .size(18.0)
+                        .strong()
+                        .color(colors.text_primary)
+                );
+
+                ui.add_space(8.0);
+
+                // 删除警告信息
+                ui.label(
+                    RichText::new(format!(
+                        "Are you sure you want to delete {}?\n\nThis will permanently remove the engine files from your system.",
+                        delete_confirm.version_info
+                    ))
+                    .color(colors.text_secondary)
+                );
+
+                ui.add_space(16.0);
+
+                // 按钮区域
+                ui.horizontal(|ui| {
+                    // 取消按钮
+                    let cancel_btn = egui::Button::new(
+                        RichText::new("Cancel").color(colors.text_primary)
+                    )
+                    .fill(colors.bg_secondary)
+                    .stroke(Stroke::new(1.0, colors.border));
+
+                    if ui.add(cancel_btn).clicked() {
+                        state.delete_confirm = None;
+                    }
+
+                    ui.add_space(12.0);
+
+                    // 确认删除按钮
+                    let confirm_btn = egui::Button::new(
+                        RichText::new("Delete").color(egui::Color32::WHITE)
+                    )
+                    .fill(colors.error);
+
+                    if ui.add(confirm_btn).clicked() {
+                        let index = delete_confirm.version_index;
+                        state.delete_confirm = None;
+
+                        // 执行删除
+                        match state.remove_installed_version(index) {
+                            Ok(removed) => {
+                                log::info!("Successfully removed Godot {}", removed.version);
+                            }
+                            Err(e) => {
+                                log::error!("Failed to remove Godot: {}", e);
+                            }
+                        }
+                    }
+                });
+            });
         });
 }
 
@@ -230,8 +319,19 @@ fn draw_version_menu(ui: &mut egui::Ui, index: usize, state: &mut AppState, _col
         // 删除操作（危险操作）
         let delete_btn = danger_button("🗑 Remove");
         if ui.add(delete_btn).clicked() {
-            // TODO: 显示确认对话框
-            log::warn!("Remove version requested for index {}", index);
+            // 显示删除确认对话框
+            if let Some(install) = state.installed_versions.get(index) {
+                let version_info = format!("Godot {} ({})", install.version,
+                    match install.variant {
+                        GodotVariant::Mono => "Mono",
+                        GodotVariant::Standard => "Standard",
+                        GodotVariant::ExportTemplates => "Export Templates",
+                    });
+                state.delete_confirm = Some(crate::state::DeleteConfirmState {
+                    version_index: index,
+                    version_info,
+                });
+            }
             ui.close_menu();
         }
     });
@@ -296,7 +396,13 @@ fn draw_version_group(
 
 /// 绘制可用版本卡片
 fn draw_available_version_card(ui: &mut egui::Ui, version: &GodotVersion, state: &mut AppState, colors: &ThemeColors) {
-    let is_downloading = state.downloads_in_progress.contains_key(&version.version);
+    // 使用正确的版本 key（与 download.rs 保持一致）
+    let version_key = match version.variant {
+        GodotVariant::Mono => format!("{}-mono", version.version),
+        _ => version.version.clone(),
+    };
+    let is_downloading = state.downloads_in_progress.contains_key(&version_key)
+        || state.downloads_in_progress.contains_key(&download_state::error_key(&version_key));
 
     card_frame(state.config.theme).show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -345,7 +451,7 @@ fn draw_available_version_card(ui: &mut egui::Ui, version: &GodotVersion, state:
                     status_pill(ui, "✓ Installed", colors.success);
                 } else if is_downloading {
                     // 下载中状态
-                    draw_download_progress(ui, &version.version, state, colors);
+                    draw_download_progress(ui, &version_key, state, colors);
                 } else {
                     // 可下载状态
                     let download_btn = primary_button("⬇️ Download", state.config.theme);
@@ -368,9 +474,84 @@ fn draw_available_version_card(ui: &mut egui::Ui, version: &GodotVersion, state:
 /// 绘制下载进度
 fn draw_download_progress(ui: &mut egui::Ui, version_key: &str, state: &mut AppState, colors: &ThemeColors) {
     // 先获取进度值的副本，避免借用冲突
+    let error_key = download_state::error_key(version_key);
+    let extracting_key = download_state::extracting_key(version_key);
+    let complete_key = download_state::complete_key(version_key);
     let progress = state.downloads_in_progress.get(version_key).copied();
+    let error_progress = state.downloads_in_progress.get(&error_key).copied();
+    let extracting_progress = state.downloads_in_progress.get(&extracting_key).copied();
+    let is_complete = state.downloads_in_progress.contains_key(&complete_key);
 
-    if let Some(progress) = progress {
+    // 检查是否为错误状态
+    let is_error = error_progress.map(download_state::is_error).unwrap_or(false);
+
+    // 检查是否为解压状态
+    let is_extracting = extracting_progress.map(download_state::is_extracting).unwrap_or(false);
+
+    if is_error {
+        // 显示错误状态
+        ui.vertical(|ui| {
+            ui.label(
+                RichText::new("❌ Failed")
+                    .color(colors.error)
+                    .strong()
+            );
+
+            ui.add_space(4.0);
+
+            // 重试按钮
+            let retry_btn = egui::Button::new(
+                RichText::new("🔄 Retry").color(colors.text_primary)
+            )
+            .fill(colors.bg_secondary)
+            .stroke(egui::Stroke::new(1.0, colors.border));
+
+            if ui.add(retry_btn).clicked() {
+                // 移除错误状态标记
+                state.downloads_in_progress.remove(&download_state::error_key(version_key));
+                // 重新开始下载
+                if let Some(runtime) = &state.runtime {
+                    // 找到对应的版本信息并克隆（避免借用冲突）
+                    let version_clone = state.available_versions.iter().find(|v| {
+                        let key = match v.variant {
+                            GodotVariant::Mono => format!("{}-mono", v.version),
+                            _ => v.version.clone(),
+                        };
+                        key == version_key
+                    }).cloned();
+                    if let Some(available_version) = version_clone {
+                        services::start_download(&available_version, state, runtime.clone());
+                    }
+                }
+            }
+
+            ui.add_space(4.0);
+
+            // 取消/移除按钮
+            let cancel_btn = danger_button("Remove");
+            if ui.add(cancel_btn).clicked() {
+                services::cancel_download(version_key, state);
+            }
+        });
+    } else if is_extracting {
+        // 解压中状态
+        ui.vertical(|ui| {
+            ui.label(
+                RichText::new("📦 Extracting...")
+                    .color(colors.accent_blue)
+            );
+        });
+    } else if is_complete {
+        // 安装完成状态
+        ui.vertical(|ui| {
+            ui.label(
+                RichText::new("✓ Installed")
+                    .color(colors.success)
+                    .strong()
+            );
+        });
+    } else if let Some(progress) = progress {
+        // 正常下载进度
         ui.vertical(|ui| {
             // 进度条
             let progress_bar = egui::ProgressBar::new(progress)
