@@ -134,8 +134,8 @@ impl ThemeColors {
 
 // 为了向后兼容，提供默认的 colors 模块
 pub mod colors {
-    use super::dark_colors;
-    pub use dark_colors::*;
+
+
 }
 
 // ============================================================================
@@ -335,7 +335,7 @@ pub fn empty_state(
 }
 
 /// 绘制统计卡片
-pub fn stat_card(ui: &mut egui::Ui, theme: Theme, label: &str, value: &str, icon: &str, color: Color32) {
+pub fn stat_card(ui: &mut egui::Ui, _theme: Theme, label: &str, value: &str, icon: &str, color: Color32) {
     egui::Frame::group(ui.style())
         .inner_margin(10.0)
         .outer_margin(0.0)

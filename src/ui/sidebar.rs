@@ -1,39 +1,42 @@
 // Sidebar - 侧边栏 UI 组件
-// 优化版本：使用统一样式系统、改进视觉层次、增强交互反馈
+// 优化版本：使用统一样式系统、改进视觉层次、增强交互反馈、支持主题切换
 
 use egui::{Align, Layout, RichText, Ui, Vec2};
 
 use crate::state::{AppState, MainTab};
-use crate::ui::style::{colors, spacing};
+use crate::ui::style::{ThemeColors, spacing};
 
 /// 绘制侧边栏
 pub fn draw_sidebar(ui: &mut Ui, state: &mut AppState) {
+    let theme = state.config.theme;
+    let colors = ThemeColors::from_theme(theme);
+
     // 设置侧边栏样式
     ui.set_min_width(spacing::SIDEBAR_WIDTH_EXPANDED);
     ui.set_max_width(spacing::SIDEBAR_WIDTH_EXPANDED);
 
     // 侧边栏容器（使用侧边栏背景色）
     egui::Frame::NONE
-        .fill(colors::BG_SIDEBAR)
+        .fill(colors.bg_sidebar)
         .inner_margin(egui::Margin::same(0))
         .show(ui, |ui| {
             ui.with_layout(Layout::top_down(Align::Min), |ui| {
                 // 应用标题区
-                draw_app_header(ui);
+                draw_app_header(ui, &colors);
 
                 ui.add_space(8.0);
-                draw_separator(ui);
+                draw_separator(ui, &colors);
                 ui.add_space(12.0);
 
                 // 导航区
-                draw_navigation_section(ui, state);
+                draw_navigation_section(ui, state, &colors);
 
                 ui.add_space(16.0);
-                draw_separator(ui);
+                draw_separator(ui, &colors);
                 ui.add_space(12.0);
 
                 // 统计信息区
-                draw_statistics_section(ui, state);
+                draw_statistics_section(ui, state, &colors);
             });
 
             // 底部下载按钮（固定在底部）
@@ -44,18 +47,18 @@ pub fn draw_sidebar(ui: &mut Ui, state: &mut AppState) {
                 ui.label(
                     RichText::new("v0.1.0")
                         .small()
-                        .color(colors::TEXT_MUTED)
+                        .color(colors.text_muted)
                 );
 
                 ui.add_space(12.0);
-                draw_download_button(ui, state);
+                draw_download_button(ui, state, &colors);
                 ui.add_space(16.0);
             });
         });
 }
 
 /// 绘制应用标题
-fn draw_app_header(ui: &mut Ui) {
+fn draw_app_header(ui: &mut Ui, colors: &ThemeColors) {
     ui.add_space(16.0);
 
     ui.horizontal(|ui| {
@@ -74,12 +77,12 @@ fn draw_app_header(ui: &mut Ui) {
                 RichText::new("Godot Hub")
                     .size(20.0)
                     .strong()
-                    .color(colors::TEXT_PRIMARY)
+                    .color(colors.text_primary)
             );
             ui.label(
                 RichText::new("Engine Manager")
                     .size(12.0)
-                    .color(colors::TEXT_SECONDARY)
+                    .color(colors.text_secondary)
             );
         });
     });
@@ -88,14 +91,14 @@ fn draw_app_header(ui: &mut Ui) {
 }
 
 /// 绘制导航区
-fn draw_navigation_section(ui: &mut Ui, state: &mut AppState) {
+fn draw_navigation_section(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) {
     // 导航标题
     ui.horizontal(|ui| {
         ui.add_space(16.0);
         ui.label(
             RichText::new("NAVIGATION")
                 .size(11.0)
-                .color(colors::TEXT_MUTED)
+                .color(colors.text_muted)
         );
     });
 
@@ -108,7 +111,8 @@ fn draw_navigation_section(ui: &mut Ui, state: &mut AppState) {
         "Versions",
         "Manage Godot engine installations",
         MainTab::Versions,
-        state
+        state,
+        colors
     );
 
     draw_nav_button(
@@ -117,7 +121,8 @@ fn draw_navigation_section(ui: &mut Ui, state: &mut AppState) {
         "Projects",
         "Browse and manage your projects",
         MainTab::Projects,
-        state
+        state,
+        colors
     );
 
     draw_nav_button(
@@ -126,7 +131,8 @@ fn draw_navigation_section(ui: &mut Ui, state: &mut AppState) {
         "Settings",
         "Configure application preferences",
         MainTab::Settings,
-        state
+        state,
+        colors
     );
 }
 
@@ -137,7 +143,8 @@ fn draw_nav_button(
     text: &str,
     tooltip: &str,
     tab: MainTab,
-    state: &mut AppState
+    state: &mut AppState,
+    colors: &ThemeColors
 ) {
     let is_selected = state.current_tab == tab;
 
@@ -146,7 +153,7 @@ fn draw_nav_button(
 
         // 创建按钮容器
         let button_frame = egui::Frame::NONE
-            .fill(if is_selected { colors::BG_HOVER } else { colors::BG_SIDEBAR })
+            .fill(if is_selected { colors.bg_hover } else { colors.bg_sidebar })
             .corner_radius(8.0)
             .inner_margin(egui::Margin::symmetric(12, 10));
 
@@ -165,9 +172,9 @@ fn draw_nav_button(
                     RichText::new(text)
                         .size(14.0)
                         .color(if is_selected {
-                            colors::ACCENT_BLUE
+                            colors.accent_blue
                         } else {
-                            colors::TEXT_PRIMARY
+                            colors.text_primary
                         })
                         .strong()
                 );
@@ -193,14 +200,14 @@ fn draw_nav_button(
 }
 
 /// 绘制统计信息区
-fn draw_statistics_section(ui: &mut Ui, state: &AppState) {
+fn draw_statistics_section(ui: &mut Ui, state: &AppState, colors: &ThemeColors) {
     // 统计标题
     ui.horizontal(|ui| {
         ui.add_space(16.0);
         ui.label(
             RichText::new("STATISTICS")
                 .size(11.0)
-                .color(colors::TEXT_MUTED)
+                .color(colors.text_muted)
         );
     });
 
@@ -214,7 +221,8 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState) {
             "Installed",
             state.installed_versions.len().to_string().as_str(),
             "📦",
-            colors::ACCENT_BLUE
+            colors.accent_blue,
+            colors
         );
     });
 
@@ -232,7 +240,8 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState) {
             "Available",
             available_count.to_string().as_str(),
             "🌐",
-            colors::BADGE_GREEN
+            colors.badge_green,
+            colors
         );
     });
 
@@ -248,7 +257,8 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState) {
                 "Downloading",
                 downloading_count.to_string().as_str(),
                 "⬇️",
-                colors::BADGE_ORANGE
+                colors.badge_orange,
+                colors
             );
         });
     }
@@ -267,16 +277,17 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState) {
                 "Favorites",
                 favorite_count.to_string().as_str(),
                 "⭐",
-                colors::WARNING
+                colors.warning,
+                colors
             );
         });
     }
 }
 
 /// 绘制紧凑型统计卡片
-fn draw_stat_card_compact(ui: &mut Ui, label: &str, value: &str, icon: &str, color: egui::Color32) {
+fn draw_stat_card_compact(ui: &mut Ui, label: &str, value: &str, icon: &str, color: egui::Color32, colors: &ThemeColors) {
     egui::Frame::NONE
-        .fill(colors::BG_SECONDARY)
+        .fill(colors.bg_secondary)
         .corner_radius(8.0)
         .inner_margin(egui::Margin::symmetric(12, 8))
         .show(ui, |ui| {
@@ -307,7 +318,7 @@ fn draw_stat_card_compact(ui: &mut Ui, label: &str, value: &str, icon: &str, col
                     RichText::new(value)
                         .size(16.0)
                         .strong()
-                        .color(colors::TEXT_PRIMARY)
+                        .color(colors.text_primary)
                 );
 
                 ui.add_space(4.0);
@@ -316,14 +327,14 @@ fn draw_stat_card_compact(ui: &mut Ui, label: &str, value: &str, icon: &str, col
                 ui.label(
                     RichText::new(label)
                         .size(12.0)
-                        .color(colors::TEXT_SECONDARY)
+                        .color(colors.text_secondary)
                 );
             });
         });
 }
 
 /// 绘制下载按钮
-fn draw_download_button(ui: &mut Ui, state: &mut AppState) {
+fn draw_download_button(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) {
     ui.horizontal(|ui| {
         ui.add_space(8.0);
 
@@ -332,9 +343,9 @@ fn draw_download_button(ui: &mut Ui, state: &mut AppState) {
             RichText::new("⬇️  Download New Version")
                 .size(13.0)
                 .strong()
-                .color(colors::TEXT_PRIMARY)
+                .color(egui::Color32::WHITE)
         )
-        .fill(colors::ACCENT_BLUE)
+        .fill(colors.accent_blue)
         .min_size(Vec2::new(spacing::SIDEBAR_WIDTH_EXPANDED - 32.0, spacing::BUTTON_HEIGHT_LARGE));
 
         let response = ui.add(download_btn);
@@ -350,12 +361,12 @@ fn draw_download_button(ui: &mut Ui, state: &mut AppState) {
 }
 
 /// 绘制分隔线
-fn draw_separator(ui: &mut Ui) {
+fn draw_separator(ui: &mut Ui, colors: &ThemeColors) {
     ui.horizontal(|ui| {
         ui.add_space(16.0);
 
         let separator = egui::Frame::NONE
-            .fill(colors::BORDER)
+            .fill(colors.border)
             .inner_margin(egui::Margin::symmetric(0, 0));
 
         separator.show(ui, |ui| {

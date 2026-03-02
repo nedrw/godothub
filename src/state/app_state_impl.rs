@@ -16,6 +16,8 @@ pub fn detect_platform() -> String {
         return "Linux32".to_string();
         #[cfg(target_arch = "aarch64")]
         return "LinuxARM64".to_string();
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))]
+        return "Linux.Unknown".to_string();
     }
 
     #[cfg(target_os = "macos")]
@@ -24,6 +26,8 @@ pub fn detect_platform() -> String {
         return "macOS.Intel".to_string();
         #[cfg(target_arch = "aarch64")]
         return "macOS.ARM".to_string();
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+        return "macOS.Unknown".to_string();
     }
 
     #[cfg(target_os = "windows")]
@@ -32,8 +36,11 @@ pub fn detect_platform() -> String {
         return "Windows64".to_string();
         #[cfg(target_arch = "x86")]
         return "Windows32".to_string();
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+        return "Windows.Unknown".to_string();
     }
 
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     "Unknown".to_string()
 }
 
@@ -204,6 +211,7 @@ impl AppState {
 
         // 获取下载源配置
         let download_source = self.config.download_source;
+        let custom_mirror_url = self.config.custom_mirror_url.clone();
 
         // 设置刷新状态
         self.version_refresh_state.is_refreshing = true;
@@ -215,9 +223,9 @@ impl AppState {
 
         // 启动异步任务
         runtime.spawn(async move {
-            log::info!("Starting async version refresh from API (source: {:?})...", download_source);
+            log::info!("Starting async version refresh from API (source: {:?}, custom_url: {:?})...", download_source, custom_mirror_url);
 
-            let result = crate::services::fetch_all_versions_with_source(download_source).await;
+            let result = crate::services::fetch_all_versions_with_source_and_custom(download_source, custom_mirror_url).await;
 
             match &result {
                 Ok(versions) => {

@@ -32,6 +32,9 @@ impl Default for GodotHubApp {
         // 将运行时设置到 state 中，供下载等功能使用
         app_state.runtime = Some(runtime);
 
+        // 创建共享状态指针，用于异步任务更新进度
+        app_state.create_shared_state();
+
         // 立即启动版本列表刷新
         app_state.refresh_available_versions();
 
@@ -49,15 +52,8 @@ impl App for GodotHubApp {
         // 检查并处理版本刷新结果
         self.state.poll_refresh_result();
 
-        // 更新下载进度（模拟）
-        for (_version, progress) in &mut self.state.downloads_in_progress {
-            if *progress < 1.0 {
-                *progress += 0.01;
-                if *progress >= 1.0 {
-                    log::info!("Download complete");
-                }
-            }
-        }
+        // 注意：不再模拟假的进度条
+        // 进度现在由 download 服务通过共享状态真实更新
 
         // 请求定期重绘
         ctx.request_repaint_after(Duration::from_millis(100));

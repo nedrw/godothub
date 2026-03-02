@@ -1,7 +1,7 @@
 // AppState - 应用程序状态
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
@@ -65,13 +65,46 @@ pub struct AppState {
     /// 版本刷新结果接收器（不序列化）
     #[serde(skip)]
     pub refresh_receiver: Option<std::sync::mpsc::Receiver<RefreshResult>>,
+    /// 共享状态指针，用于异步任务更新进度（不序列化）
+    #[serde(skip)]
+    pub shared_state: Option<Arc<Mutex<AppState>>>,
+}
+
+/// 手动实现 Clone，跳过无法克隆的字段
+impl Clone for AppState {
+    fn clone(&self) -> Self {
+        Self {
+            installed_versions: self.installed_versions.clone(),
+            available_versions: self.available_versions.clone(),
+            downloads_in_progress: self.downloads_in_progress.clone(),
+            selected_version_index: self.selected_version_index,
+            show_download_dialog: self.show_download_dialog,
+            current_tab: self.current_tab.clone(),
+            config: self.config.clone(),
+            runtime: None, // Runtime 不支持 Clone
+            version_refresh_state: self.version_refresh_state.clone(),
+            refresh_receiver: None, // Receiver 不支持 Clone
+            shared_state: None, // 避免循环引用
+        }
+    }
+}
+
+impl AppState {
+    /// 创建共享状态指针（用于异步任务更新状态）
+    /// 注意：这个克隆版本会移除 Runtime 字段，因为 Runtime 不支持 Clone
+    pub fn create_shared_state(&mut self) -> Arc<Mutex<AppState>> {
+        let state_for_async = self.clone();
+        let shared = Arc::new(Mutex::new(state_for_async));
+        self.shared_state = Some(Arc::clone(&shared));
+        shared
+    }
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
             installed_versions: Vec::new(),
-            available_versions: Vec::new(), // 初始为空，启动后异步加载
+            available_versions: Vec::new(),
             downloads_in_progress: HashMap::new(),
             selected_version_index: None,
             show_download_dialog: false,
@@ -80,6 +113,7 @@ impl Default for AppState {
             runtime: None,
             version_refresh_state: VersionRefreshState::default(),
             refresh_receiver: None,
+            shared_state: None,
         }
     }
 }

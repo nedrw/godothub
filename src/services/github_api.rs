@@ -55,6 +55,8 @@ pub struct GitHubApi {
     client: reqwest::Client,
     /// 下载源（镜像站）
     download_source: DownloadSource,
+    /// 自定义镜像URL（用户填写）
+    custom_mirror_url: String,
 }
 
 impl GitHubApi {
@@ -65,7 +67,12 @@ impl GitHubApi {
 
     /// 创建使用指定下载源的 GitHub API 客户端
     pub fn with_source(download_source: DownloadSource) -> Self {
-        log::info!("Creating GitHub API client with source: {:?}", download_source);
+        Self::with_source_and_custom(download_source, String::new())
+    }
+
+    /// 创建使用指定下载源和自定义镜像URL的 GitHub API 客户端
+    pub fn with_source_and_custom(download_source: DownloadSource, custom_mirror_url: String) -> Self {
+        log::info!("Creating GitHub API client with source: {:?}, custom_url: {}", download_source, custom_mirror_url);
         Self {
             client: reqwest::Client::builder()
                 .user_agent("GodotHub/0.1.2")
@@ -74,25 +81,58 @@ impl GitHubApi {
                 .build()
                 .unwrap_or_else(|_| reqwest::Client::new()),
             download_source,
+            custom_mirror_url,
+        }
+    }
+
+    /// 获取 API URL（支持自定义镜像）
+    fn get_api_url(&self, path: &str) -> String {
+        match self.download_source {
+            DownloadSource::GitHub => {
+                format!("https://api.github.com{}", path)
+            }
+            DownloadSource::Custom => {
+                // 自定义镜像 URL
+                if !self.custom_mirror_url.is_empty() {
+                    let mirror_url = self.custom_mirror_url.trim().trim_end_matches('/');
+                    format!("{}/https://api.github.com{}", mirror_url, path)
+                } else {
+                    // 如果没有配置自定义镜像URL，使用官方API
+                    format!("https://api.github.com{}", path)
+                }
+            }
         }
     }
 
     /// 从 GitHub API 获取 Godot 发布版本
+    /// 包含镜像回退机制：如果镜像失败，自动尝试官方 API
     pub async fn fetch_releases(&self) -> Result<Vec<GitHubRelease>, String> {
         let repo = "godotengine/godot";
         log::info!("Fetching releases for {} using source: {:?}", repo, self.download_source);
 
-        // 根据下载源选择 API URL
-        let url = match self.download_source.api_proxy_url() {
-            Some(proxy_url) => {
-                log::info!("Using proxy API: {}", proxy_url);
-                format!("{}/repos/{}/releases?per_page=50", proxy_url, repo)
-            }
-            None => {
-                log::info!("Using official GitHub API");
-                format!("https://api.github.com/repos/{}/releases?per_page=50", repo)
-            }
-        };
+        // 首先尝试使用配置的下载源
+        let result = self.fetch_releases_with_source(repo, self.download_source).await;
+
+        // 如果失败且使用的是镜像，尝试回退到官方源
+        // 无论错误是什么，只要使用镜像失败了就回退
+        if result.is_err() && self.download_source.needs_proxy() {
+            let error_msg = result.as_ref().err().cloned().unwrap_or_else(|| "Unknown error".to_string());
+            log::warn!("Mirror failed: {}, falling back to official GitHub API", error_msg);
+            return self.fetch_releases_with_source(repo, DownloadSource::GitHub).await;
+        }
+
+        result
+    }
+
+    /// 使用指定的下载源获取 releases
+    async fn fetch_releases_with_source(&self, repo: &str, source: DownloadSource) -> Result<Vec<GitHubRelease>, String> {
+        log::info!("Fetching releases with source: {:?}", source);
+
+        // 使用自定义 API URL 方法构建完整的 API URL
+        let api_path = format!("/repos/{}/releases?per_page=50", repo);
+        let url = self.get_api_url(&api_path);
+
+        log::info!("Final API URL: {}", url);
 
         let response = self.client
             .get(&url)
@@ -226,7 +266,6 @@ impl GitHubApi {
                 }
             }
         }
-
         None
     }
 
@@ -234,16 +273,15 @@ impl GitHubApi {
     pub fn convert_to_mirror_url(&self, original_url: &str) -> String {
         match self.download_source {
             DownloadSource::GitHub => original_url.to_string(),
-            DownloadSource::ChinaMirror => {
-                // ghproxy.com 镜像
-                format!("{}{}", self.download_source.mirror_prefix(), original_url)
-            }
-            DownloadSource::GitClone => {
-                // gitclone.com 镜像
-                // 需要将 github.com 替换为镜像前缀
-                if original_url.contains("github.com") {
-                    original_url.replace("https://github.com", self.download_source.mirror_prefix())
+            DownloadSource::Custom => {
+                // 自定义镜像 URL
+                if !self.custom_mirror_url.is_empty() {
+                    let mirror_url = self.custom_mirror_url.trim().trim_end_matches('/');
+                    // 尝试去除原始URL的 https:// 前缀
+                    let url_without_protocol = original_url.strip_prefix("https://").unwrap_or(original_url);
+                    format!("{}/{}", mirror_url, url_without_protocol)
                 } else {
+                    // 如果没有配置自定义镜像URL，使用官方源
                     original_url.to_string()
                 }
             }
@@ -387,9 +425,17 @@ pub async fn fetch_all_versions() -> Result<Vec<crate::models::GodotVersion>, St
 pub async fn fetch_all_versions_with_source(
     download_source: DownloadSource,
 ) -> Result<Vec<crate::models::GodotVersion>, String> {
-    log::info!("Fetching versions with source: {:?}", download_source);
+    fetch_all_versions_with_source_and_custom(download_source, String::new()).await
+}
 
-    let api = GitHubApi::with_source(download_source);
+/// 获取所有可用版本（使用指定下载源和自定义镜像URL）
+pub async fn fetch_all_versions_with_source_and_custom(
+    download_source: DownloadSource,
+    custom_mirror_url: String,
+) -> Result<Vec<crate::models::GodotVersion>, String> {
+    log::info!("Fetching versions with source: {:?}, custom_url: {}", download_source, custom_mirror_url);
+
+    let api = GitHubApi::with_source_and_custom(download_source, custom_mirror_url);
     let releases = api.fetch_releases().await?;
 
     log::info!("Received {} releases from API", releases.len());
@@ -461,14 +507,11 @@ mod tests {
         let url = "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip";
         assert_eq!(api_github.convert_to_mirror_url(url), url);
 
-        let api_ghproxy = GitHubApi::with_source(DownloadSource::ChinaMirror);
-        let mirrored = api_ghproxy.convert_to_mirror_url(url);
-        assert!(mirrored.starts_with("https://ghproxy.com/"));
+        // Test custom mirror
+        let api_custom = GitHubApi::with_source_and_custom(DownloadSource::Custom, "https://mirror.example.com".to_string());
+        let mirrored = api_custom.convert_to_mirror_url(url);
+        assert!(mirrored.starts_with("https://mirror.example.com/"));
         assert!(mirrored.contains("github.com"));
-
-        let api_gitclone = GitHubApi::with_source(DownloadSource::GitClone);
-        let mirrored = api_gitclone.convert_to_mirror_url(url);
-        assert!(mirrored.starts_with("https://gitclone.com/github.com/"));
     }
 
     #[test]
@@ -484,8 +527,7 @@ mod tests {
     #[test]
     fn test_download_source() {
         assert_eq!(DownloadSource::GitHub.mirror_prefix(), "");
-        assert_eq!(DownloadSource::ChinaMirror.mirror_prefix(), "https://ghproxy.com/");
-        assert!(DownloadSource::ChinaMirror.api_proxy_url().is_some());
         assert!(DownloadSource::GitHub.api_proxy_url().is_none());
+        assert!(DownloadSource::Custom.needs_proxy());
     }
 }

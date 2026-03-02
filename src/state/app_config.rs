@@ -22,10 +22,8 @@ pub enum DownloadSource {
     /// GitHub 官方源
     #[default]
     GitHub,
-    /// 国内镜像源 (ghproxy.com)
-    ChinaMirror,
-    /// 国内镜像源 (gitclone.com)
-    GitClone,
+    /// 自定义镜像源
+    Custom,
 }
 
 impl DownloadSource {
@@ -33,8 +31,7 @@ impl DownloadSource {
     pub fn display_name(&self) -> &'static str {
         match self {
             DownloadSource::GitHub => "GitHub (Official)",
-            DownloadSource::ChinaMirror => "GitHub Mirror (ghproxy.com)",
-            DownloadSource::GitClone => "GitClone Mirror (gitclone.com)",
+            DownloadSource::Custom => "Custom Mirror",
         }
     }
 
@@ -42,8 +39,7 @@ impl DownloadSource {
     pub fn mirror_prefix(&self) -> &'static str {
         match self {
             DownloadSource::GitHub => "",
-            DownloadSource::ChinaMirror => "https://ghproxy.com/",
-            DownloadSource::GitClone => "https://gitclone.com/github.com/",
+            DownloadSource::Custom => "",
         }
     }
 
@@ -51,14 +47,32 @@ impl DownloadSource {
     pub fn api_proxy_url(&self) -> Option<&'static str> {
         match self {
             DownloadSource::GitHub => None,
-            DownloadSource::ChinaMirror => Some("https://ghproxy.com/https://api.github.com"),
-            DownloadSource::GitClone => Some("https://gitclone.com/github.com/api.github.com"),
+            // 自定义镜像源需要用户填写 API 地址
+            DownloadSource::Custom => None,
+        }
+    }
+
+    /// 获取完整的 GitHub API URL（包含路径）
+    /// 用于直接构建完整的 API 请求 URL
+    pub fn full_api_url(&self, path: &str) -> String {
+        match self.api_proxy_url() {
+            Some(proxy_url) => {
+                format!("{}{}", proxy_url, path)
+            }
+            None => {
+                format!("https://api.github.com{}", path)
+            }
         }
     }
 
     /// 是否需要代理
     pub fn needs_proxy(&self) -> bool {
-        !matches!(self, DownloadSource::GitHub)
+        matches!(self, DownloadSource::Custom)
+    }
+
+    /// 是否使用自定义镜像
+    pub fn is_custom(&self) -> bool {
+        matches!(self, DownloadSource::Custom)
     }
 }
 
@@ -97,6 +111,9 @@ pub struct AppConfig {
     /// 下载源（镜像站）
     #[serde(default)]
     pub download_source: DownloadSource,
+    /// 自定义镜像站URL（用户填写）
+    #[serde(default)]
+    pub custom_mirror_url: String,
 }
 
 impl Default for AppConfig {
@@ -109,20 +126,64 @@ impl Default for AppConfig {
             projects_dir: home_dir.join("Godot"),
             check_updates_on_start: true,
             theme: Theme::default(),
-            download_source: DownloadSource::default(),
+            download_source: DownloadSource::GitHub,
+            custom_mirror_url: String::new(),
         }
     }
 }
 
 impl AppConfig {
     /// 创建自定义配置
-    pub fn new(install_dir: PathBuf, projects_dir: PathBuf, check_updates_on_start: bool, theme: Theme, download_source: DownloadSource) -> Self {
+    pub fn new(
+        install_dir: PathBuf,
+        projects_dir: PathBuf,
+        check_updates_on_start: bool,
+        theme: Theme,
+        download_source: DownloadSource,
+        custom_mirror_url: String,
+    ) -> Self {
         Self {
             install_dir,
             projects_dir,
             check_updates_on_start,
             theme,
             download_source,
+            custom_mirror_url,
+        }
+    }
+
+    /// 获取自定义镜像的下载URL
+    /// 如果custom_mirror_url不为空，则使用它作为基础URL
+    pub fn get_custom_download_prefix(&self) -> Option<String> {
+        if self.download_source == DownloadSource::Custom && !self.custom_mirror_url.is_empty() {
+            let url = self.custom_mirror_url.trim();
+            // 确保 URL 格式正确
+            if url.starts_with("http://") || url.starts_with("https://") {
+                // 去掉末尾的斜杠
+                let url = url.trim_end_matches('/');
+                Some(url.to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// 获取自定义镜像的 API URL
+    pub fn get_custom_api_url(&self) -> Option<String> {
+        if self.download_source == DownloadSource::Custom && !self.custom_mirror_url.is_empty() {
+            let url = self.custom_mirror_url.trim();
+            // 确保 URL 格式正确
+            if url.starts_with("http://") || url.starts_with("https://") {
+                let url = url.trim_end_matches('/');
+                // 自定义镜像通常需要代理 GitHub API
+                Some(format!("{}/https://api.github.com", url))
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 

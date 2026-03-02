@@ -462,6 +462,64 @@ pub enum GodotHubError {
 
 ## 10. 最近更新
 
+### v0.1.3 (2025-03-02) - 中国镜像支持与地区自动检测
+
+#### 问题修复
+- ✅ 修复切换到中国镜像时获取引擎版本出错的 bug
+- ✅ 优化 API URL 构建逻辑，使用 `full_api_url` 方法正确拼接镜像 URL
+- ✅ 改进日志输出，便于调试镜像源请求
+- ✅ **新增镜像回退机制**：当中国镜像服务不可用时，自动回退到 GitHub 官方 API，确保用户始终可以获取版本列表和下载引擎文件
+- ✅ **下载内容验证**：新增 `validate_zip_file` 函数，在解压前验证下载的文件是否为有效的 ZIP 格式
+- ✅ **下载回退机制**：如果镜像下载失败，自动尝试 GitHub 官方 URL 进行下载
+
+#### 新增功能
+- ✅ **地区自动检测**：新增 `region` 模块，自动检测用户时区和语言设置
+- ✅ **自动切换镜像站**：在中国地区（检测到 Asia/Shanghai 等时区或 zh_CN 等语言时）自动切换为 `ChinaMirror` 下载源
+- ✅ **手动选择镜像源**：支持 GitHub 官方源、ghproxy.com 镜像、gitclone.com 镜像三种选项
+- ✅ **自动检测开关**：在设置面板中添加"Auto-detect region"选项，可手动开启或关闭地区自动检测
+- ✅ **实时检测显示**：开启自动检测后，实时显示当前检测到的地区（🇨🇳 China / 🌍 International）
+
+#### 技术改进
+- ✅ 新增 `src/utils/region.rs` 模块，提供 `is_china_timezone()` 和 `has_chinese_locale()` 检测函数
+- ✅ `AppConfig` 新增 `auto_detect_region` 配置项，默认启用
+- ✅ `DownloadSource` 新增 `full_api_url()` 方法，正确处理镜像 URL 拼接
+- ✅ 启动时自动检测地区并设置合适的下载源
+
+#### 配置示例
+```json
+{
+  "install_dir": "/Users/user/.gdhub/versions",
+  "projects_dir": "/Users/user/Godot",
+  "check_updates_on_start": true,
+  "theme": "Dark",
+  "download_source": "ChinaMirror",
+  "auto_detect_region": true
+}
+```
+
+### v0.1.3 已知问题
+⚠️ **注意**：部分中国镜像服务（如 ghproxy.com）目前存在不稳定或已更换域名的情况。代码已实现自动回退机制，当检测到镜像不可用时会自动切换到官方 GitHub API。在中国大陆使用时，如遇到版本列表加载失败或下载报错，请检查网络连接或手动切换下载源（设置面板 → Download Source → GitHub）。
+
+
+### v0.1.2 (2025-01-17) - 下载功能修复
+
+#### 问题修复
+- ✅ 修复点击下载后只显示假进度条的 bug
+- ✅ 实现真实的下载进度更新机制
+- ✅ 下载完成后自动将版本添加到已安装列表
+- ✅ 支持流式下载，实时报告下载进度
+
+#### 技术改进
+- ✅ 使用共享状态机制 (`Arc<Mutex<AppState>>`) 实现异步任务与主线程状态同步
+- ✅ 实现流式下载支持大文件进度报告
+- ✅ 添加解压后自动查找 Godot 可执行文件功能
+- ✅ 移除假的进度条模拟代码
+
+#### 架构优化
+- ✅ `AppState` 实现手动 `Clone`，处理无法克隆的字段（Runtime、Receiver）
+- ✅ 创建专门的共享状态版本供异步任务使用
+- ✅ 下载服务通过回调机制实时更新 UI 进度
+
 ### v0.1.1 (2025-01-16) - UI 优化
 
 #### 侧边栏优化
@@ -513,8 +571,8 @@ pub enum GodotHubError {
 ## 11. 后续开发计划
 
 ### 短期目标 (v0.2.0)
-- [ ] 集成 GitHub API 获取真实版本列表
-- [ ] 实现真实下载和解压功能
+- [x] 集成 GitHub API 获取真实版本列表
+- [x] 实现真实下载和解压功能
 - [ ] 添加文件选择对话框
 - [ ] 实现删除版本功能
 - [ ] 添加状态持久化
