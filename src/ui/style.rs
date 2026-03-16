@@ -282,15 +282,8 @@ pub fn setup_visuals(ctx: &egui::Context, theme: Theme) {
                 .or_default()
                 .insert(0, "system_unicode".to_owned());
 
-            log::info!("Loaded system Unicode font: {}", system_font_path.display());
-        } else {
-            log::warn!(
-                "Failed to load system Unicode font from: {}",
-                system_font_path.display()
-            );
+            log::debug!("Loaded system Unicode font: {}", system_font_path.display());
         }
-    } else {
-        log::warn!("No system Unicode font found, using default fonts");
     }
 
     ctx.set_fonts(font_definitions);
