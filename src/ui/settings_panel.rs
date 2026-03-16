@@ -8,6 +8,7 @@ use crate::ui::style::{
     badge, card_frame, danger_button, panel_header, primary_button, secondary_button, spacing,
     ThemeColors,
 };
+use crate::utils::open_folder;
 
 /// 绘制设置面板
 pub fn draw_settings_panel(ui: &mut egui::Ui, state: &mut AppState) {
@@ -525,30 +526,6 @@ fn draw_settings_section(
             content(ui);
         });
     });
-}
-
-/// 打开文件夹（跨平台）
-fn open_folder(path: &std::path::Path) {
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open").arg(path).spawn().ok();
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        std::process::Command::new("xdg-open")
-            .arg(path)
-            .spawn()
-            .ok();
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("explorer")
-            .arg(path)
-            .spawn()
-            .ok();
-    }
 }
 
 /// 保存设置到文件

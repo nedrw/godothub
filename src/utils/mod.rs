@@ -2,5 +2,5 @@
 
 pub mod file_utils;
 
-// Re-export utility functions as needed
-// Currently all functions are used internally within the modules
+// Re-export commonly used utility functions
+pub use file_utils::open_folder;

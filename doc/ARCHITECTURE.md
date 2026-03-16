@@ -416,14 +416,14 @@ AppState::remove_installed_version(index)
 
 | 接口 | 位置 | 问题描述 |
 |------|------|---------|
-| `Theme::System` | `ThemeColors::from_theme()` | 回退为深色主题，系统主题检测未实现 |
-| `pub mod colors {}` | `style.rs` | 空模块，注释称"向后兼容"，实际无内容且无引用 |
+| `Theme::System` | `ThemeColors::from_theme()` | ✅ **已实现**：新增 `pub fn detect_system_dark_mode() -> bool`，通过 `std::sync::OnceLock` 缓存，进程内仅检测一次。macOS 调用 `defaults read -g AppleInterfaceStyle`，Windows 读取注册表 `AppsUseLightTheme`，Linux 调用 `gsettings`。`ThemeColors::from_theme` 和 `setup_visuals` 均已接入。 |
+| `pub mod colors {}` | `style.rs` | ✅ **已删除**（上一轮 warning 清零时移除） |
 
 ### 10.5 工具模块（utils/region.rs）
 
 | 接口 | 位置 | 问题描述 |
 |------|------|---------|
-| `should_use_china_mirror()` | `region.rs` | 完整实现了时区和语言检测，但从未被调用。历史上可能用于自动选择 China 镜像源，该源已被移除 |
+| `should_use_china_mirror()` | `region.rs` | ✅ **已删除**（上一轮 warning 清零时移除整个模块） |
 
 ### 10.6 状态持久化
 
@@ -439,8 +439,8 @@ AppState::remove_installed_version(index)
 |------|------|
 | macOS `.app` 包检测 | ✅ **已修复**：`find_godot_executable()` 新增 `#[cfg(target_os = "macos")]` 分支，优先枚举 `.app` 目录包并返回其路径，供 `open` 命令启动；Unix 通用回退逻辑追加 `metadata.is_file()` 检查，避免目录被误作可执行文件返回 |
 | `validate_godot_executable` macOS 误报 | ✅ **已修复**（`services/launcher.rs`）：原实现仅检查 `is_file()`，macOS `.app` bundle 是目录，导致验证失败。现改为 `exec_path.is_file() \|\| exec_path.is_dir()`，兼容所有平台 |
-| `open_folder` 三处重复 | `versions_panel.rs`、`projects_panel.rs`、`settings_panel.rs` 各自定义了相同的 `open_folder` 函数，应提取到 `utils`（P2） |
-| `DownloadSource::mirror_prefix()` | 方法返回空字符串，实际 URL 构建逻辑在 `get_api_url()` 和 `convert_to_mirror_url()` 中，该方法为无效接口（P2） |
+| `open_folder` 三处重复 | ✅ **已修复**：新增 `pub fn open_folder(path: &Path)` 至 `utils/file_utils.rs`，在 `utils/mod.rs` 中 `pub use file_utils::open_folder` re-export；三个面板文件改为 `use crate::utils::open_folder`，各自的局部定义全部删除。 |
+| `DownloadSource::mirror_prefix()` / `api_proxy_url()` | ✅ **已删除**：两个始终返回空值的方法从 `DownloadSource` impl 中移除；`full_api_url()` 直接返回 `format!("https://api.github.com{}", path)`；`github_api.rs` 测试同步更新为断言 `needs_proxy()` 和 `is_custom()`。 |
 
 ---
 
@@ -452,7 +452,7 @@ AppState::remove_installed_version(index)
 
 | 处理方式 | 说明 | 主要涉及位置 |
 |---------|------|------------|
-| **直接删除** | 真正的死代码，无保留价值 | `utils/region.rs`（整个模块）、`style.rs` 空 `colors {}` 模块及 `BADGE_BLUE` 常量、`github_api.rs` 两个 wrapper（`fetch_all_versions`/`fetch_all_versions_with_source`）、`download_dialog.rs` 四个未接入公开函数、`projects_panel.rs::create_sample_projects()` |
+| **直接删除** | 真正的死代码，无保留价值 | `utils/region.rs`（整个模块）、`style.rs` 空 `colors {}` 模块及 `BADGE_BLUE` 常量、`github_api.rs` 两个 wrapper（`fetch_all_versions`/`fetch_all_versions_with_source`）、`download_dialog.rs` 四个未接入公开函数、`projects_panel.rs::create_sample_projects()`、`DownloadSource::mirror_prefix()` / `api_proxy_url()`（P2 阶段）、三处重复的局部 `fn open_folder`（P2 阶段） |
 | **修复机械错误** | 直接改正，无副作用 | 4 处未使用 import（`Ordering`、`Mutex`、`download_state`、`fetch_all_versions_with_source`）、`validate_zip_file` 中多余的 `mut archive`、`extract_callback` 加 `_` 前缀 |
 | **`#[allow(dead_code)]`** | 有意保留的未来 API | 模型层方法（`GodotInstall`/`GodotVersion`/`GodotVariant` impl）、`utils/file_utils.rs`（模块级 `#![allow(dead_code)]`）、`services/launcher.rs` 工具函数、`download_state` 子常量/函数、`state/app_config.rs` impl 方法、`state/app_state_impl.rs` 6 个工具方法、`style.rs` 未使用常量/函数、`settings_panel.rs` 2 个工具函数 |
 
@@ -463,19 +463,13 @@ AppState::remove_installed_version(index)
 ### 短期（v0.2.0）
 
 - 实现 `is_favorite` 和 `last_used` 的持久化（独立的 installed.json）
-- 修复 macOS `.app` 包可执行文件查找逻辑
-- 实现搜索/筛选版本功能（下载对话框）
 - 实现"打开项目"功能（通过指定 Godot 版本打开）
-- 实现 `parse_godot_version()` 解析 `project.godot` 文件
-- 清理 `region.rs` 死代码或接入自动检测流程
-- 提取公共 `open_folder` 到 `utils`
+- 实现 `parse_godot_version()` 解析 `project.godot` 文件中的 `config_version` 字段
 
 ### 中期（v0.3.0）
 
 - 项目管理完整实现（新建、导入、删除、收藏）
-- `Theme::System` 系统主题检测实现
 - `check_updates_on_start` 接入实际更新检查逻辑
-- 键盘快捷键支持
 - 工具提示完善
 
 ### 长期（v1.0.0）

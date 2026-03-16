@@ -1,7 +1,7 @@
 # Godot Hub - 待办事项
 
 **当前版本**: v0.1.0  
-**构建状态**: 可编译运行，核心下载/管理功能可用，P0 缺陷已全部修复，编译零 warning
+**构建状态**: 可编译运行，核心下载/管理功能可用，P0/P2 缺陷已全部修复，编译零 warning
 
 ---
 
@@ -75,38 +75,40 @@
 
 ### 代码质量
 
-- [ ] **`open_folder` 三处重复定义**  
-  `versions_panel.rs`、`projects_panel.rs`、`settings_panel.rs` 各自实现了相同函数。  
-  提取至 `utils/file_utils.rs` 并 re-export。
+- [x] **`open_folder` 三处重复定义** ✅ 已修复（`utils/file_utils.rs` + `utils/mod.rs`）  
+  新增 `pub fn open_folder(path: &Path)` 至 `utils/file_utils.rs`，在 `utils/mod.rs` 中  
+  `pub use file_utils::open_folder` re-export；三个面板文件改为 `use crate::utils::open_folder`，  
+  各自的局部 `fn open_folder` 定义全部删除。
 
-- [ ] **`region.rs` 死代码**  
-  `should_use_china_mirror()` 及相关函数实现完整但从未被调用。  
-  选项一：接入自动检测流程（启动时自动设置 `DownloadSource`）。  
-  选项二：确认不需要则删除该模块。
+- [x] **`region.rs` 死代码** ✅ 已删除（上一轮 warning 清零时移除整个模块）
 
-- [ ] **`style.rs` 空模块 `pub mod colors {}`**  
-  注释称"向后兼容"，实际为空且无任何引用，直接删除。
+- [x] **`style.rs` 空模块 `pub mod colors {}`** ✅ 已删除（上一轮 warning 清零时移除）
 
-- [ ] **`DownloadSource::mirror_prefix()` 和 `api_proxy_url()` 无效接口**  
-  两个方法均返回空值，实际 URL 构建逻辑分散在 `get_api_url()` 和 `convert_to_mirror_url()` 中。  
-  删除这两个无用方法，统一到构建函数中。
+- [x] **`DownloadSource::mirror_prefix()` 和 `api_proxy_url()` 无效接口** ✅ 已修复（`state/app_config.rs`）  
+  两个始终返回空值的方法已从 `DownloadSource` impl 中删除；`full_api_url()` 直接返回  
+  `format!("https://api.github.com{}", path)`，不再间接调用 `api_proxy_url()`；  
+  `github_api.rs` 中的测试 `test_download_source` 同步更新，改为断言 `needs_proxy()` 和 `is_custom()`。
 
-- [ ] **无用公开函数清理**（`download_dialog.rs`）  
-  `draw_download_details()`、`initiate_download()`、`get_download_stats()` 已公开但未被调用。  
-  评估后决定内化或删除。
+- [x] **无用公开函数清理**（`download_dialog.rs`）✅ 已删除（上一轮 warning 清零时移除）  
+  `draw_download_details()`、`initiate_download()`、`cancel_download()`、`get_download_stats()` 均已移除。
 
 ### 功能完善
 
-- [ ] **`Theme::System` 系统主题检测**  
-  目前回退为深色主题。需要根据平台 API 检测系统深/浅色偏好：  
-  macOS 使用 `defaults read -g AppleInterfaceStyle`，  
-  Windows 使用注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`。
+- [x] **`Theme::System` 系统主题检测** ✅ 已实现（`ui/style.rs`）  
+  新增 `pub fn detect_system_dark_mode() -> bool`，通过 `std::sync::OnceLock` 缓存，  
+  进程生命周期内仅执行一次系统调用：  
+  - macOS：`defaults read -g AppleInterfaceStyle`（输出 "Dark" 则为深色）  
+  - Windows：读取注册表 `AppsUseLightTheme`（0 = 深色，需 `winreg` crate）  
+  - Linux：`gsettings get org.gnome.desktop.interface color-scheme`（含 "dark" 则为深色）  
+  `ThemeColors::from_theme(Theme::System)` 和 `setup_visuals()` 均已接入该函数。
 
-- [ ] **下载对话框搜索/筛选功能**  
-  修复搜索框后，实现按版本号和变体类型（Standard/Mono）筛选版本列表。
+- [x] **下载对话框搜索/筛选功能** ✅ 已在 P0 阶段完成（版本号 + 变体名称实时过滤）
 
-- [ ] **键盘快捷键**  
-  `Ctrl+R`：刷新版本列表；`Ctrl+,`：打开设置；`Esc`：关闭对话框。
+- [x] **键盘快捷键** ✅ 已实现（`main.rs` `GodotHubApp::update()`）  
+  在每帧 `update()` 中通过 `ctx.input()` 捕获：  
+  - `Ctrl+R`：调用 `refresh_available_versions()`  
+  - `Ctrl+,`：切换到 Settings 标签页  
+  - `Esc`：关闭下载对话框（`show_download_dialog = false`）
 
 ---
 
@@ -129,7 +131,7 @@
 | 自定义镜像 | ✅ 可用 | 用户填写 URL，自动代理 API 和下载 |
 | 下载队列计数 | ✅ 已修复 | 过滤特殊 key，数量显示正确；Cancel All 逻辑修正 |
 | 搜索栏 | ✅ 已修复 | 输入持久化 + 版本号/变体名称实时过滤均已实现；Filter 按钮下拉筛选待实现（P2） |
-| 主题切换 | 🟡 部分 | Dark/Light 正常，System 未实现 |
+| 主题切换 | ✅ 完整 | Dark/Light/System 均已实现；System 通过 `detect_system_dark_mode()` + `OnceLock` 缓存检测 |
 | 项目管理 | 🔴 占位 | 扫描可用，其余操作均为 TODO |
 | 收藏/使用时间 | 🔴 缺失 | 内存状态，重启丢失 |
 | 更新检查 | 🔴 缺失 | 配置开关存在，逻辑未实现 |
@@ -142,7 +144,7 @@
 
 | 类型 | 处理方式 | 涉及位置 |
 |------|---------|---------|
-| **删除死代码** | 彻底移除 | `utils/region.rs`（整个模块）、`style.rs` 空 `colors` 模块及 `BADGE_BLUE` 常量、`github_api.rs` 两个 wrapper 函数、`download_dialog.rs` 四个未接入函数、`projects_panel.rs` `create_sample_projects()` |
+| **删除死代码** | 彻底移除 | `utils/region.rs`（整个模块）、`style.rs` 空 `colors` 模块及 `BADGE_BLUE` 常量、`github_api.rs` 两个 wrapper 函数、`download_dialog.rs` 四个未接入函数、`projects_panel.rs` `create_sample_projects()`、`DownloadSource::mirror_prefix()` / `api_proxy_url()` |
 | **修复机械错误** | 直接修正 | 4 处未使用 import（`Ordering`、`Mutex`、`download_state`、`fetch_all_versions_with_source`）、`mut archive` 去掉多余 `mut`、`extract_callback` 加 `_` 前缀 |
 | **未来 API 保留** | `#[allow(dead_code)]` | 模型层方法（`GodotInstall`/`GodotVersion`/`GodotVariant`）、工具层（`file_utils.rs` 模块级）、服务接口（`launcher.rs`、`download_state` 子项）、配置方法（`AppConfig`/`DownloadSource`/`Theme`）、状态方法（`AppState` impl 中 6 个工具方法）、UI 辅助（`style.rs` 未使用常量/函数，`settings_panel.rs` 2 个工具函数） |
 

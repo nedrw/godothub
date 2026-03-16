@@ -565,8 +565,9 @@ mod tests {
 
     #[test]
     fn test_download_source() {
-        assert_eq!(DownloadSource::GitHub.mirror_prefix(), "");
-        assert!(DownloadSource::GitHub.api_proxy_url().is_none());
         assert!(DownloadSource::Custom.needs_proxy());
+        assert!(!DownloadSource::GitHub.needs_proxy());
+        assert!(DownloadSource::Custom.is_custom());
+        assert!(!DownloadSource::GitHub.is_custom());
     }
 }

@@ -8,6 +8,7 @@ use crate::ui::style::{
     badge, card_frame, danger_button, empty_state, panel_header, path_label, primary_button,
     section_header, spacing, status_pill, success_button, ThemeColors,
 };
+use crate::utils::open_folder;
 
 /// 项目信息
 #[derive(Debug, Clone)]
@@ -343,30 +344,6 @@ fn draw_project_menu(ui: &mut egui::Ui, project: &ProjectInfo, _colors: &ThemeCo
             ui.close_menu();
         }
     });
-}
-
-/// 打开文件夹（跨平台）
-fn open_folder(path: &std::path::Path) {
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open").arg(path).spawn().ok();
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        std::process::Command::new("xdg-open")
-            .arg(path)
-            .spawn()
-            .ok();
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("explorer")
-            .arg(path)
-            .spawn()
-            .ok();
-    }
 }
 
 /// 扫描项目目录，查找 Godot 项目

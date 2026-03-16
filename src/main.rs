@@ -21,10 +21,7 @@ struct GodotHubApp {
 impl Default for GodotHubApp {
     fn default() -> Self {
         // 创建 Tokio 运行时
-        let runtime = Arc::new(
-            Runtime::new()
-                .expect("Failed to create Tokio runtime")
-        );
+        let runtime = Arc::new(Runtime::new().expect("Failed to create Tokio runtime"));
 
         let mut app_state = state::AppState::default();
         app_state.load_installed_versions();
@@ -38,9 +35,7 @@ impl Default for GodotHubApp {
         // 立即启动版本列表刷新
         app_state.refresh_available_versions();
 
-        Self {
-            state: app_state,
-        }
+        Self { state: app_state }
     }
 }
 
@@ -55,6 +50,28 @@ impl App for GodotHubApp {
         // 从共享状态同步下载进度到主状态
         // 这样 UI 可以实时显示异步任务的进度和完成状态
         self.state.sync_download_progress();
+
+        // 键盘快捷键处理
+        // Ctrl+R: 刷新版本列表  Ctrl+,: 打开设置  Esc: 关闭对话框
+        let (shortcut_refresh, shortcut_settings, shortcut_esc) = ctx.input(|i| {
+            let refresh = i.key_pressed(egui::Key::R) && i.modifiers.ctrl;
+            let settings = i.key_pressed(egui::Key::Comma) && i.modifiers.ctrl;
+            let esc = i.key_pressed(egui::Key::Escape);
+            (refresh, settings, esc)
+        });
+
+        if shortcut_refresh {
+            log::info!("Shortcut Ctrl+R: refreshing version list");
+            self.state.refresh_available_versions();
+        }
+        if shortcut_settings {
+            log::info!("Shortcut Ctrl+,: switching to settings");
+            self.state.current_tab = state::MainTab::Settings;
+        }
+        if shortcut_esc && self.state.show_download_dialog {
+            log::info!("Shortcut Esc: closing download dialog");
+            self.state.show_download_dialog = false;
+        }
 
         // 请求定期重绘
         ctx.request_repaint_after(Duration::from_millis(100));
@@ -114,5 +131,9 @@ fn main() -> eframe::Result<()> {
     };
 
     // 运行应用程序
-    eframe::run_native("Godot Hub", native_options, Box::new(|_cc| Ok(Box::new(app))))
+    eframe::run_native(
+        "Godot Hub",
+        native_options,
+        Box::new(|_cc| Ok(Box::new(app))),
+    )
 }

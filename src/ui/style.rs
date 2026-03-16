@@ -1,8 +1,82 @@
 // Style - 统一样式模块
 // 包含所有颜色常量、样式配置和可复用的 UI 组件
 
+use std::sync::OnceLock;
+
 use crate::state::Theme;
 use egui::{Color32, RichText, Stroke, Vec2};
+
+// ============================================================================
+// 系统主题检测
+// ============================================================================
+
+/// 检测操作系统当前是否使用深色模式。
+///
+/// 结果通过 [`OnceLock`] 缓存，进程生命周期内仅执行一次实际检测。
+///
+/// | 平台    | 检测方式                                              |
+/// |---------|------------------------------------------------------|
+/// | macOS   | `defaults read -g AppleInterfaceStyle`（输出 "Dark" 则为深色） |
+/// | Windows | 注册表 `AppsUseLightTheme`（0 = 深色，1 = 浅色）      |
+/// | Linux   | `gsettings get org.gnome.desktop.interface color-scheme` |
+pub fn detect_system_dark_mode() -> bool {
+    static SYSTEM_IS_DARK: OnceLock<bool> = OnceLock::new();
+    *SYSTEM_IS_DARK.get_or_init(detect_system_dark_mode_inner)
+}
+
+fn detect_system_dark_mode_inner() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        // 深色模式：命令成功且输出 "Dark"
+        // 浅色模式：命令以非零退出码失败
+        let output = std::process::Command::new("defaults")
+            .args(["read", "-g", "AppleInterfaceStyle"])
+            .output();
+        return match output {
+            Ok(out) if out.status.success() => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                stdout.trim().eq_ignore_ascii_case("dark")
+            }
+            _ => false,
+        };
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let key =
+            hkcu.open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize");
+        return match key {
+            Ok(k) => {
+                // AppsUseLightTheme: 0 = 深色，1 = 浅色
+                let light_theme: u32 = k.get_value("AppsUseLightTheme").unwrap_or(1);
+                light_theme == 0
+            }
+            Err(_) => false,
+        };
+    }
+
+    // Linux 及其他平台：尝试通过 gsettings 检测 GNOME 色彩方案
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let output = std::process::Command::new("gsettings")
+            .args(["get", "org.gnome.desktop.interface", "color-scheme"])
+            .output();
+        return match output {
+            Ok(out) if out.status.success() => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                // 输出示例："'prefer-dark'" 或 "'prefer-light'" 或 "'default'"
+                stdout.to_lowercase().contains("dark")
+            }
+            _ => false,
+        };
+    }
+
+    #[allow(unreachable_code)]
+    false
+}
 
 // ============================================================================
 // 颜色常量定义 - 支持深色和浅色主题
@@ -125,8 +199,11 @@ impl ThemeColors {
             Theme::Dark => Self::dark(),
             Theme::Light => Self::light(),
             Theme::System => {
-                // TODO: 检测系统主题
-                Self::dark()
+                if detect_system_dark_mode() {
+                    Self::dark()
+                } else {
+                    Self::light()
+                }
             }
         }
     }
@@ -162,7 +239,14 @@ pub fn setup_visuals(ctx: &egui::Context, theme: Theme) {
 
     let mut visuals = match theme {
         Theme::Light => egui::Visuals::light(),
-        Theme::Dark | Theme::System => egui::Visuals::dark(),
+        Theme::Dark => egui::Visuals::dark(),
+        Theme::System => {
+            if detect_system_dark_mode() {
+                egui::Visuals::dark()
+            } else {
+                egui::Visuals::light()
+            }
+        }
     };
 
     // 窗口/面板背景

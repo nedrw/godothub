@@ -36,34 +36,11 @@ impl DownloadSource {
         }
     }
 
-    /// 获取镜像URL前缀
-    pub fn mirror_prefix(&self) -> &'static str {
-        match self {
-            DownloadSource::GitHub => "",
-            DownloadSource::Custom => "",
-        }
-    }
-
-    /// 获取 GitHub API 代理URL
-    pub fn api_proxy_url(&self) -> Option<&'static str> {
-        match self {
-            DownloadSource::GitHub => None,
-            // 自定义镜像源需要用户填写 API 地址
-            DownloadSource::Custom => None,
-        }
-    }
-
     /// 获取完整的 GitHub API URL（包含路径）
-    /// 用于直接构建完整的 API 请求 URL
+    /// 注意：自定义镜像的 API 代理由 `AppConfig::get_custom_api_url()` 处理，
+    /// 此方法仅返回官方 GitHub API URL，供需要直接访问官方源的场景使用。
     pub fn full_api_url(&self, path: &str) -> String {
-        match self.api_proxy_url() {
-            Some(proxy_url) => {
-                format!("{}{}", proxy_url, path)
-            }
-            None => {
-                format!("https://api.github.com{}", path)
-            }
-        }
+        format!("https://api.github.com{}", path)
     }
 
     /// 是否需要代理

@@ -1,7 +1,9 @@
 // FileUtils - 文件操作工具函数
 #![allow(dead_code)]
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+use std::path::PathBuf;
 
 /// 确保目录存在，如果不存在则创建
 ///
@@ -158,4 +160,36 @@ pub fn get_config_dir(app_name: &str) -> Option<PathBuf> {
 /// * `Option<PathBuf>` - 数据目录路径
 pub fn get_data_dir(app_name: &str) -> Option<PathBuf> {
     dirs::data_dir().map(|d| d.join(app_name))
+}
+
+/// 在系统文件管理器中打开指定路径的文件夹（跨平台）
+///
+/// # Arguments
+/// * `path` - 要打开的目录路径
+///
+/// # Platform Notes
+/// - macOS: 使用 `open` 命令
+/// - Linux: 使用 `xdg-open` 命令
+/// - Windows: 使用 `explorer` 命令
+pub fn open_folder(path: &Path) {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open").arg(path).spawn().ok();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .ok();
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(path)
+            .spawn()
+            .ok();
+    }
 }
