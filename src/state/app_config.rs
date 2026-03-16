@@ -26,6 +26,7 @@ pub enum DownloadSource {
     Custom,
 }
 
+#[allow(dead_code)]
 impl DownloadSource {
     /// 获取显示名称
     pub fn display_name(&self) -> &'static str {
@@ -76,6 +77,7 @@ impl DownloadSource {
     }
 }
 
+#[allow(dead_code)]
 impl Theme {
     /// 获取主题名称
     pub fn name(&self) -> &'static str {
@@ -132,6 +134,7 @@ impl Default for AppConfig {
     }
 }
 
+#[allow(dead_code)]
 impl AppConfig {
     /// 创建自定义配置
     pub fn new(

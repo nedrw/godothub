@@ -1,4 +1,5 @@
 // FileUtils - 文件操作工具函数
+#![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
 

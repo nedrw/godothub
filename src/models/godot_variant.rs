@@ -24,6 +24,7 @@ impl GodotVariant {
     }
 
     /// 检查是否为 Mono 变体
+    #[allow(dead_code)]
     pub fn is_mono(&self) -> bool {
         matches!(self, GodotVariant::Mono)
     }

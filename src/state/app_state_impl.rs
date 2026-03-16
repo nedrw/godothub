@@ -2,12 +2,13 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use super::{AppState, RefreshResult};
 use crate::models::{GodotInstall, GodotVariant};
 
 /// 检测当前平台
+#[allow(dead_code)]
 pub fn detect_platform() -> String {
     #[cfg(target_os = "linux")]
     {
@@ -216,6 +217,7 @@ impl AppState {
     }
 
     /// 异步移除已安装的版本（带进度回调）
+    #[allow(dead_code)]
     pub async fn remove_installed_version_async(
         &mut self,
         index: usize,
@@ -270,11 +272,13 @@ impl AppState {
     }
 
     /// 获取已安装版本数量
+    #[allow(dead_code)]
     pub fn installed_count(&self) -> usize {
         self.installed_versions.len()
     }
 
     /// 获取可用但未安装的版本数量
+    #[allow(dead_code)]
     pub fn available_count(&self) -> usize {
         self.available_versions
             .iter()
@@ -283,11 +287,13 @@ impl AppState {
     }
 
     /// 切换下载对话框显示状态
+    #[allow(dead_code)]
     pub fn toggle_download_dialog(&mut self) {
         self.show_download_dialog = !self.show_download_dialog;
     }
 
     /// 切换标签页
+    #[allow(dead_code)]
     pub fn switch_tab(&mut self, tab: super::MainTab) {
         self.current_tab = tab;
     }
@@ -447,6 +453,7 @@ impl AppState {
     }
 
     /// 检查是否需要刷新版本列表（距离上次刷新超过指定秒数）
+    #[allow(dead_code)]
     pub fn should_refresh_versions(&self, max_age_secs: u64) -> bool {
         if self.version_refresh_state.is_refreshing {
             return false;

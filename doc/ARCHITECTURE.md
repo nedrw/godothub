@@ -169,7 +169,7 @@ pub struct AppState {
     pub shared_state: Option<Arc<Mutex<AppState>>>, // 供异步任务写入进度
     pub delete_confirm: Option<DeleteConfirmState>,
     pub cancellation_tokens: HashMap<String, Arc<AtomicBool>>,
-    pub download_search_text: String,               // 下载对话框搜索文本（帧间持久化）
+    pub download_search_text: String,               // 下载对话框搜索文本（帧间持久化，#[serde(skip)]）
 }
 ```
 
@@ -404,12 +404,13 @@ AppState::remove_installed_version(index)
 
 | 接口 | 位置 | 问题描述 |
 |------|------|---------|
-| 搜索栏 | `draw_search_bar()` | ✅ **已修复**：搜索文本改为绑定 `AppState::download_search_text`，帧间持久化 |
-| Filter 按钮 | `draw_search_bar()` | 仅渲染按钮，无筛选逻辑（P2） |
+| 搜索栏 | `draw_search_bar()` | ✅ **已修复**：搜索文本绑定 `AppState::download_search_text`，帧间持久化；`draw_version_groups` 同步增加版本号实时过滤（大小写不敏感，空查询显示全部） |
+| Filter 按钮 | `draw_search_bar()` | 仅渲染按钮，无变体筛选逻辑（P2） |
 | "Cancel All" 按钮 | `draw_download_queue_status()` | ✅ **已修复**：数量统计和可见性判断均过滤 `_error`/`_extracting`/`_complete` 后缀 key；Cancel All 仅操作活跃 base key |
-| `draw_download_details()` | 公开函数 | 已实现但从未在 UI 流程中调用 |
-| `initiate_download()` | 公开函数 | 封装层，从未在 UI 流程中调用 |
-| `get_download_stats()` | 公开函数 | 从未被调用，计算逻辑也不正确（completed 仅计 progress >= 1.0） |
+| `draw_download_details()` | 公开函数 | ✅ **已删除**：从未在 UI 流程中调用，已移除 |
+| `initiate_download()` | 公开函数 | ✅ **已删除**：封装层，从未调用，已移除 |
+| `cancel_download()` | 公开函数 | ✅ **已删除**：与 `services::cancel_download` 重复，已移除 |
+| `get_download_stats()` | 公开函数 | ✅ **已删除**：从未被调用且逻辑有误，已移除 |
 
 ### 10.4 样式模块（style.rs）
 
@@ -437,8 +438,23 @@ AppState::remove_installed_version(index)
 | 问题 | 描述 |
 |------|------|
 | macOS `.app` 包检测 | ✅ **已修复**：`find_godot_executable()` 新增 `#[cfg(target_os = "macos")]` 分支，优先枚举 `.app` 目录包并返回其路径，供 `open` 命令启动；Unix 通用回退逻辑追加 `metadata.is_file()` 检查，避免目录被误作可执行文件返回 |
+| `validate_godot_executable` macOS 误报 | ✅ **已修复**（`services/launcher.rs`）：原实现仅检查 `is_file()`，macOS `.app` bundle 是目录，导致验证失败。现改为 `exec_path.is_file() \|\| exec_path.is_dir()`，兼容所有平台 |
 | `open_folder` 三处重复 | `versions_panel.rs`、`projects_panel.rs`、`settings_panel.rs` 各自定义了相同的 `open_folder` 函数，应提取到 `utils`（P2） |
 | `DownloadSource::mirror_prefix()` | 方法返回空字符串，实际 URL 构建逻辑在 `get_api_url()` 和 `convert_to_mirror_url()` 中，该方法为无效接口（P2） |
+
+---
+
+---
+
+## 10.8 代码清理（warning 归零）
+
+51 个编译 warning 已全部消除，处理策略如下：
+
+| 处理方式 | 说明 | 主要涉及位置 |
+|---------|------|------------|
+| **直接删除** | 真正的死代码，无保留价值 | `utils/region.rs`（整个模块）、`style.rs` 空 `colors {}` 模块及 `BADGE_BLUE` 常量、`github_api.rs` 两个 wrapper（`fetch_all_versions`/`fetch_all_versions_with_source`）、`download_dialog.rs` 四个未接入公开函数、`projects_panel.rs::create_sample_projects()` |
+| **修复机械错误** | 直接改正，无副作用 | 4 处未使用 import（`Ordering`、`Mutex`、`download_state`、`fetch_all_versions_with_source`）、`validate_zip_file` 中多余的 `mut archive`、`extract_callback` 加 `_` 前缀 |
+| **`#[allow(dead_code)]`** | 有意保留的未来 API | 模型层方法（`GodotInstall`/`GodotVersion`/`GodotVariant` impl）、`utils/file_utils.rs`（模块级 `#![allow(dead_code)]`）、`services/launcher.rs` 工具函数、`download_state` 子常量/函数、`state/app_config.rs` impl 方法、`state/app_state_impl.rs` 6 个工具方法、`style.rs` 未使用常量/函数、`settings_panel.rs` 2 个工具函数 |
 
 ---
 

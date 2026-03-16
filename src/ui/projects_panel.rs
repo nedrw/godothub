@@ -4,9 +4,10 @@
 use egui::{RichText, ScrollArea, Stroke, Vec2};
 
 use crate::state::{AppState, Theme};
-use crate::ui::style::{ThemeColors, spacing, card_frame, section_header, panel_header,
-                       primary_button, success_button, danger_button, badge,
-                       status_pill, empty_state, path_label};
+use crate::ui::style::{
+    badge, card_frame, danger_button, empty_state, panel_header, path_label, primary_button,
+    section_header, spacing, status_pill, success_button, ThemeColors,
+};
 
 /// 项目信息
 #[derive(Debug, Clone)]
@@ -23,6 +24,7 @@ pub struct ProjectInfo {
     pub last_opened: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+#[allow(dead_code)]
 impl ProjectInfo {
     /// 创建新项目
     pub fn new(name: String, path: std::path::PathBuf, godot_version: String) -> Self {
@@ -87,19 +89,23 @@ pub fn draw_projects_panel(ui: &mut egui::Ui, state: &mut AppState) {
 /// 绘制面板头部
 fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeColors) {
     ui.horizontal(|ui| {
-        panel_header(ui, state.config.theme, "Projects", "Manage your Godot projects");
+        panel_header(
+            ui,
+            state.config.theme,
+            "Projects",
+            "Manage your Godot projects",
+        );
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // 扫描按钮
-            let scan_btn = egui::Button::new(
-                RichText::new("🔍 Scan")
-                    .color(colors.text_primary)
-            )
-            .fill(colors.bg_secondary)
-            .stroke(Stroke::new(1.0, colors.border))
-            .min_size(Vec2::new(100.0, spacing::BUTTON_HEIGHT));
+            let scan_btn = egui::Button::new(RichText::new("🔍 Scan").color(colors.text_primary))
+                .fill(colors.bg_secondary)
+                .stroke(Stroke::new(1.0, colors.border))
+                .min_size(Vec2::new(100.0, spacing::BUTTON_HEIGHT));
 
-            let response = ui.add(scan_btn).on_hover_text("Scan projects directory for Godot projects");
+            let response = ui
+                .add(scan_btn)
+                .on_hover_text("Scan projects directory for Godot projects");
 
             if response.clicked() {
                 // TODO: 实现项目扫描功能
@@ -125,7 +131,9 @@ fn draw_action_buttons(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeCo
 
         // 导入项目按钮
         let import_btn = primary_button("📂 Import Project", state.config.theme);
-        let response = ui.add(import_btn).on_hover_text("Import an existing Godot project");
+        let response = ui
+            .add(import_btn)
+            .on_hover_text("Import an existing Godot project");
 
         if response.clicked() {
             log::info!("Import project button clicked");
@@ -135,15 +143,15 @@ fn draw_action_buttons(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeCo
         ui.add_space(8.0);
 
         // 打开项目目录按钮
-        let open_dir_btn = egui::Button::new(
-            RichText::new("📁 Open Projects Folder")
-                .color(colors.text_primary)
-        )
-        .fill(colors.bg_secondary)
-        .stroke(Stroke::new(1.0, colors.border))
-        .min_size(Vec2::new(160.0, spacing::BUTTON_HEIGHT));
+        let open_dir_btn =
+            egui::Button::new(RichText::new("📁 Open Projects Folder").color(colors.text_primary))
+                .fill(colors.bg_secondary)
+                .stroke(Stroke::new(1.0, colors.border))
+                .min_size(Vec2::new(160.0, spacing::BUTTON_HEIGHT));
 
-        let response = ui.add(open_dir_btn).on_hover_text("Open projects directory in file manager");
+        let response = ui
+            .add(open_dir_btn)
+            .on_hover_text("Open projects directory in file manager");
 
         if response.clicked() {
             // 打开项目目录
@@ -159,7 +167,13 @@ fn draw_projects_list(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeCol
 
     ui.vertical(|ui| {
         // 区域标题
-        section_header(ui, state.config.theme, "📁", "Recent Projects", Some(projects.len()));
+        section_header(
+            ui,
+            state.config.theme,
+            "📁",
+            "Recent Projects",
+            Some(projects.len()),
+        );
 
         ui.add_space(12.0);
 
@@ -186,7 +200,7 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &mut AppState, colors: &T
         Some("➕ Create Project"),
         Some(&mut || {
             log::info!("Create project from empty state");
-        })
+        }),
     );
 
     ui.add_space(16.0);
@@ -198,33 +212,33 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &mut AppState, colors: &T
         .inner_margin(egui::Margin::same(12))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new("💡")
-                        .size(20.0)
-                );
+                ui.label(RichText::new("💡").size(20.0));
 
                 ui.add_space(8.0);
 
                 ui.label(
                     RichText::new("Tip: You can change the projects directory in Settings")
                         .size(12.0)
-                        .color(colors.text_secondary)
+                        .color(colors.text_secondary),
                 );
             });
         });
 }
 
 /// 绘制项目项
-fn draw_project_item(ui: &mut egui::Ui, project: &ProjectInfo, _index: usize, theme: Theme, colors: &ThemeColors) {
+fn draw_project_item(
+    ui: &mut egui::Ui,
+    project: &ProjectInfo,
+    _index: usize,
+    theme: Theme,
+    colors: &ThemeColors,
+) {
     card_frame(theme).show(ui, |ui| {
         ui.horizontal(|ui| {
             // 左侧：项目图标
             ui.vertical(|ui| {
                 ui.add_space(4.0);
-                ui.label(
-                    RichText::new(if project.is_favorite { "⭐" } else { "📁" })
-                        .size(28.0)
-                );
+                ui.label(RichText::new(if project.is_favorite { "⭐" } else { "📁" }).size(28.0));
             });
 
             ui.add_space(12.0);
@@ -237,7 +251,7 @@ fn draw_project_item(ui: &mut egui::Ui, project: &ProjectInfo, _index: usize, th
                         RichText::new(&project.name)
                             .size(16.0)
                             .strong()
-                            .color(colors.text_primary)
+                            .color(colors.text_primary),
                     );
 
                     ui.add_space(8.0);
@@ -268,7 +282,7 @@ fn draw_project_item(ui: &mut egui::Ui, project: &ProjectInfo, _index: usize, th
                             last_opened.format("%Y-%m-%d %H:%M")
                         ))
                         .small()
-                        .color(colors.text_secondary)
+                        .color(colors.text_secondary),
                     );
                 }
             });
@@ -282,10 +296,9 @@ fn draw_project_item(ui: &mut egui::Ui, project: &ProjectInfo, _index: usize, th
 
                 // 打开按钮
                 let open_btn = success_button("▶ Open");
-                let response = ui.add(open_btn).on_hover_text(format!(
-                    "Open project in Godot {}",
-                    project.godot_version
-                ));
+                let response = ui
+                    .add(open_btn)
+                    .on_hover_text(format!("Open project in Godot {}", project.godot_version));
 
                 if response.clicked() {
                     log::info!("Opening project: {:?}", project.path);
@@ -336,10 +349,7 @@ fn draw_project_menu(ui: &mut egui::Ui, project: &ProjectInfo, _colors: &ThemeCo
 fn open_folder(path: &std::path::Path) {
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
-            .arg(path)
-            .spawn()
-            .ok();
+        std::process::Command::new("open").arg(path).spawn().ok();
     }
 
     #[cfg(target_os = "linux")]
@@ -405,31 +415,4 @@ fn parse_godot_version(_project_file: &std::path::Path) -> String {
     // 简化实现：返回默认版本
     // TODO: 实际解析 project.godot 文件中的 config_version
     "4.x".to_string()
-}
-
-/// 创建示例项目（用于演示）
-pub fn create_sample_projects() -> Vec<ProjectInfo> {
-    vec![
-        ProjectInfo {
-            name: "My Platformer".to_string(),
-            path: std::path::PathBuf::from("/Users/demo/projects/platformer"),
-            godot_version: "4.2".to_string(),
-            is_favorite: true,
-            last_opened: Some(chrono::Utc::now() - chrono::Duration::hours(2)),
-        },
-        ProjectInfo {
-            name: "RPG Game".to_string(),
-            path: std::path::PathBuf::from("/Users/demo/projects/rpg"),
-            godot_version: "4.1".to_string(),
-            is_favorite: false,
-            last_opened: Some(chrono::Utc::now() - chrono::Duration::days(1)),
-        },
-        ProjectInfo {
-            name: "Test Project".to_string(),
-            path: std::path::PathBuf::from("/Users/demo/projects/test"),
-            godot_version: "3.5".to_string(),
-            is_favorite: false,
-            last_opened: None,
-        },
-    ]
 }

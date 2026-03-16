@@ -3,9 +3,11 @@
 
 use egui::{RichText, ScrollArea, Stroke, Vec2};
 
-use crate::state::{AppState, Theme, DownloadSource};
-use crate::ui::style::{ThemeColors, spacing, card_frame, panel_header,
-                       primary_button, secondary_button, danger_button, badge};
+use crate::state::{AppState, DownloadSource, Theme};
+use crate::ui::style::{
+    badge, card_frame, danger_button, panel_header, primary_button, secondary_button, spacing,
+    ThemeColors,
+};
 
 /// 绘制设置面板
 pub fn draw_settings_panel(ui: &mut egui::Ui, state: &mut AppState) {
@@ -48,7 +50,12 @@ pub fn draw_settings_panel(ui: &mut egui::Ui, state: &mut AppState) {
 /// 绘制面板头部
 fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState, _colors: &ThemeColors) {
     ui.horizontal(|ui| {
-        panel_header(ui, state.config.theme, "Settings", "Configure application preferences");
+        panel_header(
+            ui,
+            state.config.theme,
+            "Settings",
+            "Configure application preferences",
+        );
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // 保存按钮
@@ -67,7 +74,9 @@ fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState, _colors: &ThemeCol
 
             // 重置按钮
             let reset_btn = danger_button("🔄 Reset");
-            let response = ui.add(reset_btn).on_hover_text("Reset all settings to default values");
+            let response = ui
+                .add(reset_btn)
+                .on_hover_text("Reset all settings to default values");
 
             if response.clicked() {
                 state.config = crate::state::AppConfig::default();
@@ -79,31 +88,38 @@ fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState, _colors: &ThemeCol
 
 /// 绘制目录设置部分
 fn draw_directory_settings(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeColors) {
-    draw_settings_section(ui, state.config.theme, "📂 Directories", "Configure installation and project directories", |ui| {
-        // 安装目录设置
-        draw_directory_setting(
-            ui,
-            state.config.theme,
-            "Installation Directory",
-            "Where Godot versions will be installed",
-            &mut state.config.install_dir,
-            "Select Installation Directory",
-            colors,
-        );
+    draw_settings_section(
+        ui,
+        state.config.theme,
+        "📂 Directories",
+        "Configure installation and project directories",
+        |ui| {
+            // 安装目录设置
+            draw_directory_setting(
+                ui,
+                state.config.theme,
+                "Installation Directory",
+                "Where Godot versions will be installed",
+                &mut state.config.install_dir,
+                "Select Installation Directory",
+                colors,
+            );
 
-        ui.add_space(20.0);
+            ui.add_space(20.0);
 
-        // 项目目录设置
-        draw_directory_setting(
-            ui,
-            state.config.theme,
-            "Projects Directory",
-            "Default location for your Godot projects",
-            &mut state.config.projects_dir,
-            "Select Projects Directory",
-            colors,
-        );
-    }, colors);
+            // 项目目录设置
+            draw_directory_setting(
+                ui,
+                state.config.theme,
+                "Projects Directory",
+                "Default location for your Godot projects",
+                &mut state.config.projects_dir,
+                "Select Projects Directory",
+                colors,
+            );
+        },
+        colors,
+    );
 }
 
 /// 绘制单个目录设置项
@@ -123,7 +139,7 @@ fn draw_directory_setting(
                 RichText::new(label)
                     .size(14.0)
                     .strong()
-                    .color(colors.text_primary)
+                    .color(colors.text_primary),
             );
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -131,7 +147,7 @@ fn draw_directory_setting(
                 let open_btn = egui::Button::new(
                     RichText::new("📂 Open")
                         .size(12.0)
-                        .color(colors.text_secondary)
+                        .color(colors.text_secondary),
                 )
                 .fill(colors.bg_hover)
                 .min_size(Vec2::new(70.0, 24.0));
@@ -161,9 +177,8 @@ fn draw_directory_setting(
             // 浏览按钮
             let browse_btn = secondary_button("Browse", theme);
             if ui.add(browse_btn).clicked() {
-                if let Some(selected_path) = rfd::FileDialog::new()
-                    .set_title(dialog_title)
-                    .pick_folder()
+                if let Some(selected_path) =
+                    rfd::FileDialog::new().set_title(dialog_title).pick_folder()
                 {
                     *path = selected_path;
                     log::info!("Selected directory: {:?}", path);
@@ -177,33 +192,45 @@ fn draw_directory_setting(
         ui.label(
             RichText::new(description)
                 .size(12.0)
-                .color(colors.text_secondary)
+                .color(colors.text_secondary),
         );
     });
 }
 
 /// 绘制行为设置部分
 fn draw_behavior_settings(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeColors) {
-    draw_settings_section(ui, state.config.theme, "⚙️ Behavior", "Application startup and runtime behavior", |ui| {
-        // 启动时检查更新
-        draw_toggle_setting(
-            ui,
-            "Check for Updates on Startup",
-            "Automatically check for Godot updates when the application starts",
-            &mut state.config.check_updates_on_start,
-            colors,
-        );
+    draw_settings_section(
+        ui,
+        state.config.theme,
+        "⚙️ Behavior",
+        "Application startup and runtime behavior",
+        |ui| {
+            // 启动时检查更新
+            draw_toggle_setting(
+                ui,
+                "Check for Updates on Startup",
+                "Automatically check for Godot updates when the application starts",
+                &mut state.config.check_updates_on_start,
+                colors,
+            );
 
-        ui.add_space(16.0);
+            ui.add_space(16.0);
 
-        // 主题选择
-        draw_theme_setting(ui, &mut state.config.theme, colors);
+            // 主题选择
+            draw_theme_setting(ui, &mut state.config.theme, colors);
 
-        ui.add_space(16.0);
+            ui.add_space(16.0);
 
-        // 下载源选择
-        draw_download_source_setting(ui, &mut state.config.download_source, &mut state.config.custom_mirror_url, colors);
-    }, colors);
+            // 下载源选择
+            draw_download_source_setting(
+                ui,
+                &mut state.config.download_source,
+                &mut state.config.custom_mirror_url,
+                colors,
+            );
+        },
+        colors,
+    );
 }
 
 /// 绘制开关设置项
@@ -220,7 +247,7 @@ fn draw_toggle_setting(
                 RichText::new(label)
                     .size(14.0)
                     .strong()
-                    .color(colors.text_primary)
+                    .color(colors.text_primary),
             );
 
             ui.add_space(4.0);
@@ -228,7 +255,7 @@ fn draw_toggle_setting(
             ui.label(
                 RichText::new(description)
                     .size(12.0)
-                    .color(colors.text_secondary)
+                    .color(colors.text_secondary),
             );
         });
 
@@ -245,7 +272,7 @@ fn draw_theme_setting(ui: &mut egui::Ui, theme: &mut Theme, colors: &ThemeColors
             RichText::new("Application Theme")
                 .size(14.0)
                 .strong()
-                .color(colors.text_primary)
+                .color(colors.text_primary),
         );
 
         ui.add_space(4.0);
@@ -253,7 +280,7 @@ fn draw_theme_setting(ui: &mut egui::Ui, theme: &mut Theme, colors: &ThemeColors
         ui.label(
             RichText::new("Choose the color theme for the application")
                 .size(12.0)
-                .color(colors.text_secondary)
+                .color(colors.text_secondary),
         );
 
         ui.add_space(12.0);
@@ -269,25 +296,24 @@ fn draw_theme_setting(ui: &mut egui::Ui, theme: &mut Theme, colors: &ThemeColors
 }
 
 /// 绘制主题选择按钮
-fn theme_button(ui: &mut egui::Ui, text: &str, theme_type: Theme, current_theme: &mut Theme, colors: &ThemeColors) {
+fn theme_button(
+    ui: &mut egui::Ui,
+    text: &str,
+    theme_type: Theme,
+    current_theme: &mut Theme,
+    colors: &ThemeColors,
+) {
     let is_selected = *current_theme == theme_type;
 
     let btn = if is_selected {
-        egui::Button::new(
-            RichText::new(text)
-                .color(egui::Color32::WHITE)
-                .strong()
-        )
-        .fill(colors.accent_blue)
-        .min_size(Vec2::new(100.0, spacing::BUTTON_HEIGHT))
+        egui::Button::new(RichText::new(text).color(egui::Color32::WHITE).strong())
+            .fill(colors.accent_blue)
+            .min_size(Vec2::new(100.0, spacing::BUTTON_HEIGHT))
     } else {
-        egui::Button::new(
-            RichText::new(text)
-                .color(colors.text_primary)
-        )
-        .fill(colors.bg_secondary)
-        .stroke(Stroke::new(1.0, colors.border))
-        .min_size(Vec2::new(100.0, spacing::BUTTON_HEIGHT))
+        egui::Button::new(RichText::new(text).color(colors.text_primary))
+            .fill(colors.bg_secondary)
+            .stroke(Stroke::new(1.0, colors.border))
+            .min_size(Vec2::new(100.0, spacing::BUTTON_HEIGHT))
     };
 
     if ui.add(btn).clicked() {
@@ -296,13 +322,18 @@ fn theme_button(ui: &mut egui::Ui, text: &str, theme_type: Theme, current_theme:
 }
 
 /// 绘制下载源选择设置
-fn draw_download_source_setting(ui: &mut egui::Ui, source: &mut DownloadSource, custom_mirror_url: &mut String, colors: &ThemeColors) {
+fn draw_download_source_setting(
+    ui: &mut egui::Ui,
+    source: &mut DownloadSource,
+    custom_mirror_url: &mut String,
+    colors: &ThemeColors,
+) {
     ui.vertical(|ui| {
         ui.label(
             RichText::new("Download Source")
                 .size(14.0)
                 .strong()
-                .color(colors.text_primary)
+                .color(colors.text_primary),
         );
 
         ui.add_space(4.0);
@@ -310,7 +341,7 @@ fn draw_download_source_setting(ui: &mut egui::Ui, source: &mut DownloadSource, 
         ui.label(
             RichText::new("Select the source for downloading Godot versions")
                 .size(12.0)
-                .color(colors.text_secondary)
+                .color(colors.text_secondary),
         );
 
         ui.add_space(12.0);
@@ -328,7 +359,7 @@ fn draw_download_source_setting(ui: &mut egui::Ui, source: &mut DownloadSource, 
             ui.label(
                 RichText::new("Custom Mirror URL")
                     .size(12.0)
-                    .color(colors.text_secondary)
+                    .color(colors.text_secondary),
             );
             ui.add_space(4.0);
             ui.text_edit_singleline(custom_mirror_url)
@@ -339,35 +370,32 @@ fn draw_download_source_setting(ui: &mut egui::Ui, source: &mut DownloadSource, 
                 ui.label(
                     RichText::new("⚠️ Please enter a custom mirror URL")
                         .size(11.0)
-                        .color(colors.warning)
+                        .color(colors.warning),
                 );
             }
         }
-
-
     });
 }
 
 /// 绘制下载源选择按钮
-fn source_button(ui: &mut egui::Ui, text: &str, source_type: DownloadSource, current_source: &mut DownloadSource, colors: &ThemeColors) {
+fn source_button(
+    ui: &mut egui::Ui,
+    text: &str,
+    source_type: DownloadSource,
+    current_source: &mut DownloadSource,
+    colors: &ThemeColors,
+) {
     let is_selected = *current_source == source_type;
 
     let btn = if is_selected {
-        egui::Button::new(
-            RichText::new(text)
-                .color(egui::Color32::WHITE)
-                .strong()
-        )
-        .fill(colors.accent_blue)
-        .min_size(Vec2::new(110.0, spacing::BUTTON_HEIGHT))
+        egui::Button::new(RichText::new(text).color(egui::Color32::WHITE).strong())
+            .fill(colors.accent_blue)
+            .min_size(Vec2::new(110.0, spacing::BUTTON_HEIGHT))
     } else {
-        egui::Button::new(
-            RichText::new(text)
-                .color(colors.text_primary)
-        )
-        .fill(colors.bg_secondary)
-        .stroke(Stroke::new(1.0, colors.border))
-        .min_size(Vec2::new(110.0, spacing::BUTTON_HEIGHT))
+        egui::Button::new(RichText::new(text).color(colors.text_primary))
+            .fill(colors.bg_secondary)
+            .stroke(Stroke::new(1.0, colors.border))
+            .min_size(Vec2::new(110.0, spacing::BUTTON_HEIGHT))
     };
 
     if ui.add(btn).clicked() {
@@ -377,85 +405,91 @@ fn source_button(ui: &mut egui::Ui, text: &str, source_type: DownloadSource, cur
 
 /// 绘制关于部分
 fn draw_about_section(ui: &mut egui::Ui, theme: Theme, colors: &ThemeColors) {
-    draw_settings_section(ui, theme, "ℹ️ About", "Application information", |ui| {
-        ui.vertical(|ui| {
-            // 应用名称和版本
-            ui.horizontal(|ui| {
+    draw_settings_section(
+        ui,
+        theme,
+        "ℹ️ About",
+        "Application information",
+        |ui| {
+            ui.vertical(|ui| {
+                // 应用名称和版本
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("🎮").size(32.0));
+
+                    ui.add_space(12.0);
+
+                    ui.vertical(|ui| {
+                        ui.label(
+                            RichText::new("Godot Hub")
+                                .size(18.0)
+                                .strong()
+                                .color(colors.text_primary),
+                        );
+
+                        badge(ui, "v0.1.0", colors.badge_purple);
+                    });
+                });
+
+                ui.add_space(16.0);
+
                 ui.label(
-                    RichText::new("🎮")
-                        .size(32.0)
+                    RichText::new(
+                        "A modern Godot Engine management application built with Rust and egui.",
+                    )
+                    .size(13.0)
+                    .color(colors.text_secondary),
                 );
 
-                ui.add_space(12.0);
+                ui.add_space(20.0);
 
-                ui.vertical(|ui| {
-                    ui.label(
-                        RichText::new("Godot Hub")
-                            .size(18.0)
-                            .strong()
-                            .color(colors.text_primary)
-                    );
+                // 链接按钮
+                ui.horizontal(|ui| {
+                    let github_btn = secondary_button("🐙 GitHub", theme);
+                    if ui.add(github_btn).clicked() {
+                        // TODO: 打开 GitHub 页面
+                        log::info!("Opening GitHub page");
+                    }
 
-                    badge(ui, "v0.1.0", colors.badge_purple);
+                    ui.add_space(8.0);
+
+                    let website_btn = secondary_button("🌐 Website", theme);
+                    if ui.add(website_btn).clicked() {
+                        // TODO: 打开官方网站
+                        log::info!("Opening website");
+                    }
                 });
-            });
 
-            ui.add_space(16.0);
+                ui.add_space(16.0);
 
-            ui.label(
-                RichText::new("A modern Godot Engine management application built with Rust and egui.")
-                    .size(13.0)
-                    .color(colors.text_secondary)
-            );
-
-            ui.add_space(20.0);
-
-            // 链接按钮
-            ui.horizontal(|ui| {
-                let github_btn = secondary_button("🐙 GitHub", theme);
-                if ui.add(github_btn).clicked() {
-                    // TODO: 打开 GitHub 页面
-                    log::info!("Opening GitHub page");
-                }
+                // 技术栈信息
+                ui.label(
+                    RichText::new("Built with:")
+                        .size(12.0)
+                        .strong()
+                        .color(colors.text_primary),
+                );
 
                 ui.add_space(8.0);
 
-                let website_btn = secondary_button("🌐 Website", theme);
-                if ui.add(website_btn).clicked() {
-                    // TODO: 打开官方网站
-                    log::info!("Opening website");
-                }
+                ui.horizontal_wrapped(|ui| {
+                    for tech in &["Rust", "egui", "eframe", "tokio", "serde"] {
+                        badge(ui, tech, colors.bg_hover);
+                        ui.add_space(6.0);
+                    }
+                });
+
+                ui.add_space(16.0);
+
+                // 版权信息
+                ui.label(
+                    RichText::new("© 2025 Godot Hub. Licensed under MIT License.")
+                        .size(11.0)
+                        .color(colors.text_muted),
+                );
             });
-
-            ui.add_space(16.0);
-
-            // 技术栈信息
-            ui.label(
-                RichText::new("Built with:")
-                    .size(12.0)
-                    .strong()
-                    .color(colors.text_primary)
-            );
-
-            ui.add_space(8.0);
-
-            ui.horizontal_wrapped(|ui| {
-                for tech in &["Rust", "egui", "eframe", "tokio", "serde"] {
-                    badge(ui, tech, colors.bg_hover);
-                    ui.add_space(6.0);
-                }
-            });
-
-            ui.add_space(16.0);
-
-            // 版权信息
-            ui.label(
-                RichText::new("© 2025 Godot Hub. Licensed under MIT License.")
-                    .size(11.0)
-                    .color(colors.text_muted)
-            );
-        });
-    }, colors);
+        },
+        colors,
+    );
 }
 
 /// 绘制设置区块容器
@@ -473,7 +507,7 @@ fn draw_settings_section(
             RichText::new(title)
                 .size(16.0)
                 .strong()
-                .color(colors.text_primary)
+                .color(colors.text_primary),
         );
 
         ui.add_space(4.0);
@@ -481,7 +515,7 @@ fn draw_settings_section(
         ui.label(
             RichText::new(description)
                 .size(12.0)
-                .color(colors.text_secondary)
+                .color(colors.text_secondary),
         );
 
         ui.add_space(12.0);
@@ -497,10 +531,7 @@ fn draw_settings_section(
 fn open_folder(path: &std::path::Path) {
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
-            .arg(path)
-            .spawn()
-            .ok();
+        std::process::Command::new("open").arg(path).spawn().ok();
     }
 
     #[cfg(target_os = "linux")]
@@ -521,6 +552,7 @@ fn open_folder(path: &std::path::Path) {
 }
 
 /// 保存设置到文件
+#[allow(dead_code)]
 pub fn save_settings(state: &AppState) -> Result<(), Box<dyn std::error::Error>> {
     state.config.save()?;
     log::info!("Settings saved successfully");
@@ -528,6 +560,7 @@ pub fn save_settings(state: &AppState) -> Result<(), Box<dyn std::error::Error>>
 }
 
 /// 验证设置是否有效
+#[allow(dead_code)]
 pub fn validate_settings(state: &AppState) -> Result<(), String> {
     // 检查安装目录
     if !state.config.install_dir.exists() {

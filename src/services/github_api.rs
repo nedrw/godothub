@@ -1,8 +1,8 @@
 // GitHub API Service - 从 GitHub 获取 Godot 版本信息
 // 支持国内镜像源加速
 
-use serde::{Deserialize, Serialize};
 use crate::state::DownloadSource;
+use serde::{Deserialize, Serialize};
 
 /// GitHub Release 信息
 /// 使用 deny_unknown_fields(false) 允许忽略未知字段
@@ -71,8 +71,15 @@ impl GitHubApi {
     }
 
     /// 创建使用指定下载源和自定义镜像URL的 GitHub API 客户端
-    pub fn with_source_and_custom(download_source: DownloadSource, custom_mirror_url: String) -> Self {
-        log::info!("Creating GitHub API client with source: {:?}, custom_url: {}", download_source, custom_mirror_url);
+    pub fn with_source_and_custom(
+        download_source: DownloadSource,
+        custom_mirror_url: String,
+    ) -> Self {
+        log::info!(
+            "Creating GitHub API client with source: {:?}, custom_url: {}",
+            download_source,
+            custom_mirror_url
+        );
         Self {
             client: reqwest::Client::builder()
                 .user_agent("GodotHub/0.1.2")
@@ -108,24 +115,43 @@ impl GitHubApi {
     /// 包含镜像回退机制：如果镜像失败，自动尝试官方 API
     pub async fn fetch_releases(&self) -> Result<Vec<GitHubRelease>, String> {
         let repo = "godotengine/godot";
-        log::info!("Fetching releases for {} using source: {:?}", repo, self.download_source);
+        log::info!(
+            "Fetching releases for {} using source: {:?}",
+            repo,
+            self.download_source
+        );
 
         // 首先尝试使用配置的下载源
-        let result = self.fetch_releases_with_source(repo, self.download_source).await;
+        let result = self
+            .fetch_releases_with_source(repo, self.download_source)
+            .await;
 
         // 如果失败且使用的是镜像，尝试回退到官方源
         // 无论错误是什么，只要使用镜像失败了就回退
         if result.is_err() && self.download_source.needs_proxy() {
-            let error_msg = result.as_ref().err().cloned().unwrap_or_else(|| "Unknown error".to_string());
-            log::warn!("Mirror failed: {}, falling back to official GitHub API", error_msg);
-            return self.fetch_releases_with_source(repo, DownloadSource::GitHub).await;
+            let error_msg = result
+                .as_ref()
+                .err()
+                .cloned()
+                .unwrap_or_else(|| "Unknown error".to_string());
+            log::warn!(
+                "Mirror failed: {}, falling back to official GitHub API",
+                error_msg
+            );
+            return self
+                .fetch_releases_with_source(repo, DownloadSource::GitHub)
+                .await;
         }
 
         result
     }
 
     /// 使用指定的下载源获取 releases
-    async fn fetch_releases_with_source(&self, repo: &str, source: DownloadSource) -> Result<Vec<GitHubRelease>, String> {
+    async fn fetch_releases_with_source(
+        &self,
+        repo: &str,
+        source: DownloadSource,
+    ) -> Result<Vec<GitHubRelease>, String> {
         log::info!("Fetching releases with source: {:?}", source);
 
         // 使用自定义 API URL 方法构建完整的 API URL
@@ -134,7 +160,8 @@ impl GitHubApi {
 
         log::info!("Final API URL: {}", url);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Accept", "application/vnd.github.v3+json")
             .send()
@@ -162,7 +189,10 @@ impl GitHubApi {
         // 如果响应太短，可能是错误
         if response_text.len() < 100 {
             log::error!("Response too short, might be an error: {}", response_text);
-            return Err(format!("API returned unexpected response: {}", response_text));
+            return Err(format!(
+                "API returned unexpected response: {}",
+                response_text
+            ));
         }
 
         // 尝试解析 JSON
@@ -175,18 +205,19 @@ impl GitHubApi {
                         return Err(format!("GitHub API error: {}", message));
                     }
                 }
-                let error_msg = format!("Failed to parse releases: {}. Response preview: {}",
-                    e, &response_text[..response_text.len().min(500)]);
+                let error_msg = format!(
+                    "Failed to parse releases: {}. Response preview: {}",
+                    e,
+                    &response_text[..response_text.len().min(500)]
+                );
                 log::error!("{}", error_msg);
                 return Err(error_msg);
             }
         };
 
         // 过滤掉预发布版本
-        let stable_releases: Vec<GitHubRelease> = releases
-            .into_iter()
-            .filter(|r| !r.prerelease)
-            .collect();
+        let stable_releases: Vec<GitHubRelease> =
+            releases.into_iter().filter(|r| !r.prerelease).collect();
 
         log::info!("Fetched {} stable releases", stable_releases.len());
         Ok(stable_releases)
@@ -195,11 +226,7 @@ impl GitHubApi {
     /// 解析版本号
     pub fn parse_version(tag: &str) -> Option<String> {
         // 从标签中提取版本号，如 "4.3-stable" -> "4.3"
-        let version = tag
-            .strip_prefix('v')
-            .unwrap_or(tag)
-            .split('-')
-            .next()?;
+        let version = tag.strip_prefix('v').unwrap_or(tag).split('-').next()?;
 
         // 验证版本号格式
         if version.chars().all(|c| c.is_digit(10) || c == '.') {
@@ -278,7 +305,9 @@ impl GitHubApi {
                 if !self.custom_mirror_url.is_empty() {
                     let mirror_url = self.custom_mirror_url.trim().trim_end_matches('/');
                     // 尝试去除原始URL的 https:// 前缀
-                    let url_without_protocol = original_url.strip_prefix("https://").unwrap_or(original_url);
+                    let url_without_protocol = original_url
+                        .strip_prefix("https://")
+                        .unwrap_or(original_url);
                     format!("{}/{}", mirror_url, url_without_protocol)
                 } else {
                     // 如果没有配置自定义镜像URL，使用官方源
@@ -296,6 +325,7 @@ impl Default for GitHubApi {
 }
 
 /// 支持的平台
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Platform {
     Linux64,
@@ -381,11 +411,7 @@ pub fn release_to_version(
     let version = GitHubApi::parse_version(&release.tag_name)?;
     let platform = GitHubApi::detect_platform();
 
-    let (_filename, original_url) = GitHubApi::find_download_url(
-        &release.assets,
-        platform,
-        mono,
-    )?;
+    let (_filename, original_url) = GitHubApi::find_download_url(&release.assets, platform, mono)?;
 
     // 转换为镜像 URL
     let download_url = api.convert_to_mirror_url(&original_url);
@@ -394,7 +420,8 @@ pub fn release_to_version(
     let release_date = if release.published_at.is_empty() {
         "Unknown".to_string()
     } else {
-        release.published_at
+        release
+            .published_at
             .split('T')
             .next()
             .unwrap_or("Unknown")
@@ -416,24 +443,16 @@ pub fn release_to_version(
     })
 }
 
-/// 获取所有可用版本（标准版和 Mono 版）- 使用默认源
-pub async fn fetch_all_versions() -> Result<Vec<crate::models::GodotVersion>, String> {
-    fetch_all_versions_with_source(DownloadSource::GitHub).await
-}
-
-/// 获取所有可用版本（使用指定下载源）
-pub async fn fetch_all_versions_with_source(
-    download_source: DownloadSource,
-) -> Result<Vec<crate::models::GodotVersion>, String> {
-    fetch_all_versions_with_source_and_custom(download_source, String::new()).await
-}
-
 /// 获取所有可用版本（使用指定下载源和自定义镜像URL）
 pub async fn fetch_all_versions_with_source_and_custom(
     download_source: DownloadSource,
     custom_mirror_url: String,
 ) -> Result<Vec<crate::models::GodotVersion>, String> {
-    log::info!("Fetching versions with source: {:?}, custom_url: {}", download_source, custom_mirror_url);
+    log::info!(
+        "Fetching versions with source: {:?}, custom_url: {}",
+        download_source,
+        custom_mirror_url
+    );
 
     let api = GitHubApi::with_source_and_custom(download_source, custom_mirror_url);
     let releases = api.fetch_releases().await?;
@@ -463,14 +482,22 @@ pub async fn fetch_all_versions_with_source_and_custom(
         }
     }
 
-    log::info!("Parsed {} standard versions and {} mono versions", standard_count, mono_count);
+    log::info!(
+        "Parsed {} standard versions and {} mono versions",
+        standard_count,
+        mono_count
+    );
 
     // 按版本号排序（从新到旧）
     versions.sort_by(|a, b| {
-        let a_parts: Vec<u32> = a.version.split('.')
+        let a_parts: Vec<u32> = a
+            .version
+            .split('.')
             .filter_map(|s| s.parse().ok())
             .collect();
-        let b_parts: Vec<u32> = b.version.split('.')
+        let b_parts: Vec<u32> = b
+            .version
+            .split('.')
             .filter_map(|s| s.parse().ok())
             .collect();
 
@@ -495,9 +522,18 @@ mod tests {
 
     #[test]
     fn test_parse_version() {
-        assert_eq!(GitHubApi::parse_version("4.3-stable"), Some("4.3".to_string()));
-        assert_eq!(GitHubApi::parse_version("v4.2.2-stable"), Some("4.2.2".to_string()));
-        assert_eq!(GitHubApi::parse_version("3.5.3-stable"), Some("3.5.3".to_string()));
+        assert_eq!(
+            GitHubApi::parse_version("4.3-stable"),
+            Some("4.3".to_string())
+        );
+        assert_eq!(
+            GitHubApi::parse_version("v4.2.2-stable"),
+            Some("4.2.2".to_string())
+        );
+        assert_eq!(
+            GitHubApi::parse_version("3.5.3-stable"),
+            Some("3.5.3".to_string())
+        );
         assert_eq!(GitHubApi::parse_version("invalid"), None);
     }
 
@@ -508,7 +544,10 @@ mod tests {
         assert_eq!(api_github.convert_to_mirror_url(url), url);
 
         // Test custom mirror
-        let api_custom = GitHubApi::with_source_and_custom(DownloadSource::Custom, "https://mirror.example.com".to_string());
+        let api_custom = GitHubApi::with_source_and_custom(
+            DownloadSource::Custom,
+            "https://mirror.example.com".to_string(),
+        );
         let mirrored = api_custom.convert_to_mirror_url(url);
         assert!(mirrored.starts_with("https://mirror.example.com/"));
         assert!(mirrored.contains("github.com"));

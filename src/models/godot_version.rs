@@ -23,6 +23,7 @@ pub struct GodotVersion {
     pub install_path: Option<PathBuf>,
 }
 
+#[allow(dead_code)]
 impl GodotVersion {
     /// 创建一个新的 GodotVersion
     pub fn new(

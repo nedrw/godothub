@@ -1,8 +1,8 @@
 // Style - 统一样式模块
 // 包含所有颜色常量、样式配置和可复用的 UI 组件
 
-use egui::{Color32, RichText, Stroke, Vec2};
 use crate::state::Theme;
+use egui::{Color32, RichText, Stroke, Vec2};
 
 // ============================================================================
 // 颜色常量定义 - 支持深色和浅色主题
@@ -22,7 +22,7 @@ pub mod dark_colors {
     pub const TEXT_SECONDARY: Color32 = Color32::from_rgb(139, 146, 168);
     pub const TEXT_MUTED: Color32 = Color32::from_rgb(107, 114, 128);
     pub const BORDER: Color32 = Color32::from_rgb(58, 63, 75);
-    pub const BADGE_BLUE: Color32 = Color32::from_rgb(71, 140, 191);
+
     pub const BADGE_PURPLE: Color32 = Color32::from_rgb(142, 68, 173);
     pub const BADGE_GREEN: Color32 = Color32::from_rgb(39, 174, 96);
     pub const BADGE_ORANGE: Color32 = Color32::from_rgb(255, 152, 0);
@@ -45,7 +45,7 @@ pub mod light_colors {
     pub const TEXT_SECONDARY: Color32 = Color32::from_rgb(95, 99, 104);
     pub const TEXT_MUTED: Color32 = Color32::from_rgb(128, 134, 139);
     pub const BORDER: Color32 = Color32::from_rgb(218, 220, 224);
-    pub const BADGE_BLUE: Color32 = Color32::from_rgb(41, 98, 255);
+
     pub const BADGE_PURPLE: Color32 = Color32::from_rgb(156, 39, 176);
     pub const BADGE_GREEN: Color32 = Color32::from_rgb(76, 175, 80);
     pub const BADGE_ORANGE: Color32 = Color32::from_rgb(255, 152, 0);
@@ -66,7 +66,7 @@ pub struct ThemeColors {
     pub text_secondary: Color32,
     pub text_muted: Color32,
     pub border: Color32,
-    pub badge_blue: Color32,
+
     pub badge_purple: Color32,
     pub badge_green: Color32,
     pub badge_orange: Color32,
@@ -88,7 +88,7 @@ impl ThemeColors {
             text_secondary: dark_colors::TEXT_SECONDARY,
             text_muted: dark_colors::TEXT_MUTED,
             border: dark_colors::BORDER,
-            badge_blue: dark_colors::BADGE_BLUE,
+
             badge_purple: dark_colors::BADGE_PURPLE,
             badge_green: dark_colors::BADGE_GREEN,
             badge_orange: dark_colors::BADGE_ORANGE,
@@ -110,7 +110,7 @@ impl ThemeColors {
             text_secondary: light_colors::TEXT_SECONDARY,
             text_muted: light_colors::TEXT_MUTED,
             border: light_colors::BORDER,
-            badge_blue: light_colors::BADGE_BLUE,
+
             badge_purple: light_colors::BADGE_PURPLE,
             badge_green: light_colors::BADGE_GREEN,
             badge_orange: light_colors::BADGE_ORANGE,
@@ -132,22 +132,20 @@ impl ThemeColors {
     }
 }
 
-// 为了向后兼容，提供默认的 colors 模块
-pub mod colors {
-
-
-}
-
 // ============================================================================
 // 尺寸常量定义
 // ============================================================================
 
 pub mod spacing {
+    #[allow(dead_code)]
     pub const SIDEBAR_WIDTH_COLLAPSED: f32 = 60.0;
     pub const SIDEBAR_WIDTH_EXPANDED: f32 = 220.0;
+    #[allow(dead_code)]
     pub const CARD_GAP: f32 = 16.0;
+    #[allow(dead_code)]
     pub const PAGE_PADDING: f32 = 24.0;
     pub const CARD_ROUNDING: f32 = 12.0;
+    #[allow(dead_code)]
     pub const BUTTON_ROUNDING: f32 = 6.0;
     pub const PILL_ROUNDING: f32 = 12.0;
     pub const BUTTON_HEIGHT: f32 = 32.0;
@@ -210,6 +208,7 @@ pub fn setup_visuals(ctx: &egui::Context, theme: Theme) {
 }
 
 /// 获取当前主题的颜色
+#[allow(dead_code)]
 pub fn get_theme_colors(theme: Theme) -> ThemeColors {
     ThemeColors::from_theme(theme)
 }
@@ -224,7 +223,7 @@ pub fn badge(ui: &mut egui::Ui, text: &str, color: Color32) {
         RichText::new(text)
             .size(11.0)
             .color(Color32::WHITE)
-            .background_color(color)
+            .background_color(color),
     );
 }
 
@@ -239,7 +238,7 @@ pub fn status_pill(ui: &mut egui::Ui, text: &str, color: Color32) {
                 RichText::new(text)
                     .size(11.0)
                     .color(Color32::WHITE)
-                    .strong()
+                    .strong(),
             );
         });
 }
@@ -257,13 +256,9 @@ pub fn card_frame(theme: Theme) -> egui::Frame {
 /// 绘制主要按钮
 pub fn primary_button(text: &str, theme: Theme) -> egui::Button<'_> {
     let colors = ThemeColors::from_theme(theme);
-    egui::Button::new(
-        RichText::new(text)
-            .strong()
-            .color(Color32::WHITE)
-    )
-    .fill(colors.accent_blue)
-    .min_size(Vec2::new(120.0, spacing::BUTTON_HEIGHT))
+    egui::Button::new(RichText::new(text).strong().color(Color32::WHITE))
+        .fill(colors.accent_blue)
+        .min_size(Vec2::new(120.0, spacing::BUTTON_HEIGHT))
 }
 
 /// 绘制次要按钮
@@ -277,22 +272,16 @@ pub fn secondary_button(text: &str, theme: Theme) -> egui::Button<'_> {
 
 /// 绘制危险操作按钮
 pub fn danger_button(text: &str) -> egui::Button<'_> {
-    egui::Button::new(
-        RichText::new(text)
-            .color(Color32::WHITE)
-    )
-    .fill(dark_colors::ERROR)
-    .min_size(Vec2::new(120.0, spacing::BUTTON_HEIGHT))
+    egui::Button::new(RichText::new(text).color(Color32::WHITE))
+        .fill(dark_colors::ERROR)
+        .min_size(Vec2::new(120.0, spacing::BUTTON_HEIGHT))
 }
 
 /// 绘制成功/运行按钮
 pub fn success_button(text: &str) -> egui::Button<'_> {
-    egui::Button::new(
-        RichText::new(text)
-            .color(Color32::WHITE)
-    )
-    .fill(dark_colors::SUCCESS)
-    .min_size(Vec2::new(64.0, spacing::BUTTON_HEIGHT))
+    egui::Button::new(RichText::new(text).color(Color32::WHITE))
+        .fill(dark_colors::SUCCESS)
+        .min_size(Vec2::new(64.0, spacing::BUTTON_HEIGHT))
 }
 
 /// 绘制空状态组件
@@ -317,7 +306,12 @@ pub fn empty_state(
                 ui.add_space(16.0);
                 ui.label(RichText::new(icon).size(48.0).color(colors.text_muted));
                 ui.add_space(12.0);
-                ui.label(RichText::new(title).size(16.0).strong().color(colors.text_primary));
+                ui.label(
+                    RichText::new(title)
+                        .size(16.0)
+                        .strong()
+                        .color(colors.text_primary),
+                );
                 ui.add_space(8.0);
                 ui.label(RichText::new(description).color(colors.text_secondary));
 
@@ -335,7 +329,15 @@ pub fn empty_state(
 }
 
 /// 绘制统计卡片
-pub fn stat_card(ui: &mut egui::Ui, _theme: Theme, label: &str, value: &str, icon: &str, color: Color32) {
+#[allow(dead_code)]
+pub fn stat_card(
+    ui: &mut egui::Ui,
+    _theme: Theme,
+    label: &str,
+    value: &str,
+    icon: &str,
+    color: Color32,
+) {
     egui::Frame::group(ui.style())
         .inner_margin(10.0)
         .outer_margin(0.0)
@@ -353,14 +355,20 @@ pub fn stat_card(ui: &mut egui::Ui, _theme: Theme, label: &str, value: &str, ico
 }
 
 /// 绘制分隔标题
-pub fn section_header(ui: &mut egui::Ui, theme: Theme, icon: &str, text: &str, count: Option<usize>) {
+pub fn section_header(
+    ui: &mut egui::Ui,
+    theme: Theme,
+    icon: &str,
+    text: &str,
+    count: Option<usize>,
+) {
     let colors = ThemeColors::from_theme(theme);
     ui.horizontal(|ui| {
         ui.label(
             RichText::new(format!("{} {}", icon, text))
                 .size(16.0)
                 .strong()
-                .color(colors.text_primary)
+                .color(colors.text_primary),
         );
 
         if let Some(n) = count {
@@ -368,7 +376,7 @@ pub fn section_header(ui: &mut egui::Ui, theme: Theme, icon: &str, text: &str, c
             ui.label(
                 RichText::new(format!("({})", n))
                     .small()
-                    .color(colors.text_secondary)
+                    .color(colors.text_secondary),
             );
         }
     });
@@ -383,12 +391,12 @@ pub fn panel_header(ui: &mut egui::Ui, theme: Theme, title: &str, description: &
                 RichText::new(title)
                     .size(20.0)
                     .strong()
-                    .color(colors.text_primary)
+                    .color(colors.text_primary),
             );
             ui.label(
                 RichText::new(description)
                     .small()
-                    .color(colors.text_secondary)
+                    .color(colors.text_secondary),
             );
         });
     });
@@ -413,7 +421,7 @@ pub fn path_label(ui: &mut egui::Ui, theme: Theme, path: &str, max_len: usize) {
         RichText::new(format!("📂 {}", display_path))
             .small()
             .color(colors.text_secondary)
-            .code()
+            .code(),
     );
 
     if is_truncated {

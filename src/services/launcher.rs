@@ -12,7 +12,10 @@ use std::process::Command;
 /// * `Result<(), String>` - 启动结果
 pub fn launch_godot(exec_path: &Path) -> Result<(), String> {
     if !exec_path.exists() {
-        return Err(format!("Godot executable not found at: {}", exec_path.display()));
+        return Err(format!(
+            "Godot executable not found at: {}",
+            exec_path.display()
+        ));
     }
 
     log::info!("Launching Godot: {}", exec_path.display());
@@ -65,13 +68,21 @@ fn launch_for_current_platform(exec_path: &Path) -> Result<(), String> {
 }
 
 /// 检查 Godot 可执行文件是否有效
+///
+/// 在 macOS 上，可执行文件路径可能是 `.app` 目录包，因此同时接受文件和目录。
+#[allow(dead_code)]
 pub fn validate_godot_executable(exec_path: &Path) -> bool {
-    exec_path.exists() && exec_path.is_file()
+    if !exec_path.exists() {
+        return false;
+    }
+    // macOS .app bundle 是目录，其他平台是文件
+    exec_path.is_file() || exec_path.is_dir()
 }
 
 /// 获取 Godot 版本信息
 ///
 /// 注意：这需要 Godot 进程支持 --version 参数
+#[allow(dead_code)]
 pub fn get_godot_version(exec_path: &Path) -> Result<String, String> {
     if !validate_godot_executable(exec_path) {
         return Err("Invalid Godot executable".to_string());
@@ -86,11 +97,15 @@ pub fn get_godot_version(exec_path: &Path) -> Result<String, String> {
         let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(version)
     } else {
-        Err(format!("Godot version check failed: {}", String::from_utf8_lossy(&output.stderr)))
+        Err(format!(
+            "Godot version check failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ))
     }
 }
 
 /// 检查两个路径是否指向同一个文件
+#[allow(dead_code)]
 pub fn is_same_file(path1: &Path, path2: &Path) -> bool {
     match (path1.canonicalize(), path2.canonicalize()) {
         (Ok(p1), Ok(p2)) => p1 == p2,

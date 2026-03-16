@@ -262,7 +262,14 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
         ui.add_space(8.0);
     }
 
-    let versions: Vec<GodotVersion> = state.available_versions.clone();
+    // 根据搜索文本过滤版本（大小写不敏感，空文本显示全部）
+    let search_query = state.download_search_text.trim().to_lowercase();
+    let versions: Vec<GodotVersion> = state
+        .available_versions
+        .iter()
+        .filter(|v| search_query.is_empty() || v.version.to_lowercase().contains(&search_query))
+        .cloned()
+        .collect();
 
     // 如果版本列表为空
     if versions.is_empty() {
@@ -594,99 +601,4 @@ fn draw_downloading_status(
             }
         });
     }
-}
-
-/// 显示下载详情对话框
-pub fn draw_download_details(ui: &mut Ui, version: &GodotVersion, colors: &ThemeColors) {
-    ui.separator();
-
-    ui.heading(RichText::new("Download Details").color(colors.text_primary));
-    ui.add_space(8.0);
-
-    // 版本信息
-    egui::Grid::new("download_details_grid")
-        .num_columns(2)
-        .spacing([12.0, 8.0])
-        .show(ui, |ui| {
-            ui.label(
-                RichText::new("Version:")
-                    .strong()
-                    .color(colors.text_primary),
-            );
-            ui.label(RichText::new(&version.version).color(colors.text_secondary));
-
-            ui.label(
-                RichText::new("Variant:")
-                    .strong()
-                    .color(colors.text_primary),
-            );
-            ui.label(
-                RichText::new(AppState::get_variant_name(&version.variant))
-                    .color(colors.text_secondary),
-            );
-
-            ui.label(
-                RichText::new("Platform:")
-                    .strong()
-                    .color(colors.text_primary),
-            );
-            ui.label(RichText::new(&version.platform).color(colors.text_secondary));
-
-            ui.label(
-                RichText::new("Release Date:")
-                    .strong()
-                    .color(colors.text_primary),
-            );
-            ui.label(RichText::new(&version.release_date).color(colors.text_secondary));
-
-            ui.label(
-                RichText::new("Download URL:")
-                    .strong()
-                    .color(colors.text_primary),
-            );
-            ui.label(
-                RichText::new(&version.download_url)
-                    .small()
-                    .weak()
-                    .color(colors.text_muted),
-            );
-        });
-
-    ui.add_space(8.0);
-
-    // 复制链接按钮
-    if ui.button("📋 Copy Download URL").clicked() {
-        ui.ctx().copy_text(version.download_url.clone());
-        log::info!("Download URL copied to clipboard");
-    }
-}
-
-/// 启动下载（供外部调用）
-pub fn initiate_download(version: &GodotVersion, state: &mut AppState) {
-    log::info!(
-        "Initiating download for Godot {} ({})",
-        version.version,
-        AppState::get_variant_name(&version.variant)
-    );
-
-    if let Some(runtime) = &state.runtime {
-        services::start_download(version, state, runtime.clone());
-    }
-}
-
-/// 取消下载（供外部调用）
-pub fn cancel_download(version_key: &str, state: &mut AppState) -> bool {
-    log::info!("Cancelling download for: {}", version_key);
-    services::cancel_download(version_key, state)
-}
-
-/// 获取下载统计信息
-pub fn get_download_stats(state: &AppState) -> (usize, usize) {
-    let total = state.downloads_in_progress.len();
-    let completed = state
-        .downloads_in_progress
-        .values()
-        .filter(|&&progress| progress >= 1.0)
-        .count();
-    (total, completed)
 }

@@ -1,10 +1,7 @@
 // AppState - 应用程序状态
 
 use std::collections::HashMap;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
-};
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;

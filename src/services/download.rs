@@ -2,10 +2,10 @@
 // 实现真正的下载和解压功能，支持进度更新和完成通知
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::runtime::Runtime;
+use std::sync::Arc;
 use std::sync::Mutex;
+use tokio::runtime::Runtime;
 
 use crate::models::{GodotVariant, GodotVersion};
 use crate::state::{AppConfig, AppState, DownloadSource};
@@ -14,6 +14,7 @@ use crate::state::{AppConfig, AppState, DownloadSource};
 pub type ProgressCallback = Arc<dyn Fn(f32) + Send + Sync>;
 
 /// 共享状态指针类型
+#[allow(dead_code)]
 pub type SharedState = Arc<Mutex<AppState>>;
 
 /// 取消令牌类型
@@ -23,7 +24,9 @@ pub type CancellationToken = Arc<AtomicBool>;
 /// 用于在 downloads_in_progress HashMap 中标识特殊状态
 pub mod download_state {
     /// 正常下载进度范围: 0.0 - 1.0
+    #[allow(dead_code)]
     pub const PROGRESS_MIN: f32 = 0.0;
+    #[allow(dead_code)]
     pub const PROGRESS_MAX: f32 = 1.0;
 
     /// 下载失败的标记 (key: "{version}_error", value: ERROR)
@@ -61,6 +64,7 @@ pub mod download_state {
     }
 
     /// 检查是否为完成状态
+    #[allow(dead_code)]
     pub fn is_complete(progress: f32) -> bool {
         progress == COMPLETE
     }
@@ -72,11 +76,7 @@ pub mod download_state {
 /// * `version` - 要下载的 Godot 版本信息
 /// * `state` - 应用程序状态
 /// * `runtime` - Tokio 运行时
-pub fn start_download(
-    version: &GodotVersion,
-    state: &mut AppState,
-    runtime: Arc<Runtime>,
-) {
+pub fn start_download(version: &GodotVersion, state: &mut AppState, runtime: Arc<Runtime>) {
     log::info!("Starting download for Godot {}", version.version);
 
     // 创建版本标识键
@@ -87,7 +87,9 @@ pub fn start_download(
 
     // 创建取消令牌
     let cancellation_token = Arc::new(AtomicBool::new(false));
-    state.cancellation_tokens.insert(version_key.clone(), cancellation_token.clone());
+    state
+        .cancellation_tokens
+        .insert(version_key.clone(), cancellation_token.clone());
 
     // 克隆必要的数据
     let version = version.clone();
@@ -107,7 +109,8 @@ pub fn start_download(
             // 更新共享状态中的进度
             if let Some(ref shared) = shared_state_for_progress {
                 if let Ok(mut s) = shared.lock() {
-                    s.downloads_in_progress.insert(version_key_clone.clone(), progress);
+                    s.downloads_in_progress
+                        .insert(version_key_clone.clone(), progress);
                 }
             }
         });
@@ -115,7 +118,11 @@ pub fn start_download(
         // 执行下载
         match download_and_install(&version, &config, Some(progress_cb), cancellation_token).await {
             Ok(path) => {
-                log::info!("Successfully installed Godot {} at: {}", version.version, path.display());
+                log::info!(
+                    "Successfully installed Godot {} at: {}",
+                    version.version,
+                    path.display()
+                );
 
                 // 使用正确的版本 key
                 let version_key = create_version_key(&version);
@@ -125,7 +132,7 @@ pub fn start_download(
                     if let Ok(mut s) = shared.lock() {
                         s.downloads_in_progress.insert(
                             download_state::extracting_key(&version_key),
-                            download_state::EXTRACTING
+                            download_state::EXTRACTING,
                         );
                     }
                 }
@@ -137,19 +144,24 @@ pub fn start_download(
                 if let Some(ref shared) = shared_state {
                     if let Ok(mut s) = shared.lock() {
                         // 移除解压标记
-                        s.downloads_in_progress.remove(&download_state::extracting_key(&version_key));
+                        s.downloads_in_progress
+                            .remove(&download_state::extracting_key(&version_key));
 
                         // 先添加安装完成标记，让UI有时间显示"Installed"状态
                         s.downloads_in_progress.insert(
                             download_state::complete_key(&version_key),
-                            download_state::COMPLETE
+                            download_state::COMPLETE,
                         );
 
                         // 移除下载进度记录（使用正确的版本 key）
                         s.downloads_in_progress.remove(&version_key);
 
                         // 查找对应的版本信息并添加到已安装列表
-                        if let Some(available_version) = s.available_versions.iter().find(|v| v.version == version.version && v.variant == version.variant) {
+                        if let Some(available_version) = s
+                            .available_versions
+                            .iter()
+                            .find(|v| v.version == version.version && v.variant == version.variant)
+                        {
                             let install = crate::models::GodotInstall::new(
                                 version.version.clone(),
                                 available_version.variant.clone(),
@@ -158,7 +170,9 @@ pub fn start_download(
                             s.installed_versions.push(install);
 
                             // 更新可用版本状态
-                            if let Some(av) = s.available_versions.iter_mut().find(|v| v.version == version.version && v.variant == version.variant) {
+                            if let Some(av) = s.available_versions.iter_mut().find(|v| {
+                                v.version == version.version && v.variant == version.variant
+                            }) {
                                 av.is_installed = true;
                                 av.install_path = Some(path.clone());
                             }
@@ -177,7 +191,7 @@ pub fn start_download(
                         // 添加下载失败标记，用于 UI 显示错误状态
                         s.downloads_in_progress.insert(
                             download_state::error_key(&version_key),
-                            download_state::ERROR
+                            download_state::ERROR,
                         );
                     }
                 }
@@ -210,11 +224,18 @@ pub fn cancel_download(version_key: &str, state: &mut AppState) -> bool {
     // 移除下载进度记录
     let has_progress = state.downloads_in_progress.remove(version_key).is_some();
     // 同时移除错误标记（如果有）
-    let has_error = state.downloads_in_progress.remove(&download_state::error_key(version_key)).is_some();
+    let has_error = state
+        .downloads_in_progress
+        .remove(&download_state::error_key(version_key))
+        .is_some();
     // 同时移除解压标记（如果有）
-    state.downloads_in_progress.remove(&download_state::extracting_key(version_key));
+    state
+        .downloads_in_progress
+        .remove(&download_state::extracting_key(version_key));
     // 同时移除完成标记（如果有）
-    state.downloads_in_progress.remove(&download_state::complete_key(version_key));
+    state
+        .downloads_in_progress
+        .remove(&download_state::complete_key(version_key));
     has_progress || has_error
 }
 
@@ -255,20 +276,36 @@ pub async fn download_and_install(
     let download_path = temp_dir.join(&filename);
 
     // 根据当前配置重新转换下载 URL（而不是使用缓存的 URL）
-    let download_url = convert_url_with_current_source(&version.download_url, &config.download_source, &config.custom_mirror_url);
-    log::info!("Using download URL (with current source settings): {}", download_url);
+    let download_url = convert_url_with_current_source(
+        &version.download_url,
+        &config.download_source,
+        &config.custom_mirror_url,
+    );
+    log::info!(
+        "Using download URL (with current source settings): {}",
+        download_url
+    );
 
     // 克隆进度回调用于后续解压进度报告
-    let extract_callback = progress_callback.clone();
+    let _extract_callback = progress_callback.clone();
 
     // 下载文件，支持镜像回退
-    download_file_with_fallback(&download_url, &download_path, progress_callback.clone(), cancellation_token.clone()).await?;
+    download_file_with_fallback(
+        &download_url,
+        &download_path,
+        progress_callback.clone(),
+        cancellation_token.clone(),
+    )
+    .await?;
 
     // 验证下载的文件是否为有效的 ZIP
     if let Err(e) = validate_zip_file(&download_path).await {
         // 删除无效文件
         let _ = tokio::fs::remove_file(&download_path).await;
-        return Err(format!("Downloaded file is not a valid ZIP: {}. The download source may be unavailable.", e));
+        return Err(format!(
+            "Downloaded file is not a valid ZIP: {}. The download source may be unavailable.",
+            e
+        ));
     }
 
     // 解压文件
@@ -291,7 +328,11 @@ async fn find_executable(install_dir: &PathBuf) -> Result<PathBuf, String> {
         .await
         .map_err(|e| format!("Failed to read install directory: {}", e))?;
 
-    while let Some(entry) = entries.next_entry().await.map_err(|e| format!("Read error: {}", e))? {
+    while let Some(entry) = entries
+        .next_entry()
+        .await
+        .map_err(|e| format!("Read error: {}", e))?
+    {
         let path = entry.path();
         if path.is_file() {
             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
@@ -323,19 +364,21 @@ async fn find_executable(install_dir: &PathBuf) -> Result<PathBuf, String> {
 async fn validate_zip_file(path: &PathBuf) -> Result<(), String> {
     let path = path.clone();
     tokio::task::spawn_blocking(move || {
-        let file = std::fs::File::open(&path)
-            .map_err(|e| format!("Failed to open file: {}", e))?;
+        let file = std::fs::File::open(&path).map_err(|e| format!("Failed to open file: {}", e))?;
 
         // 尝试读取 ZIP 文件头
-        let mut archive = zip::ZipArchive::new(file)
-            .map_err(|e| format!("Invalid ZIP archive: {}", e))?;
+        let archive =
+            zip::ZipArchive::new(file).map_err(|e| format!("Invalid ZIP archive: {}", e))?;
 
         // 检查 ZIP 内部是否有文件
         if archive.len() == 0 {
             return Err("ZIP archive is empty".to_string());
         }
 
-        log::info!("ZIP file validated successfully, contains {} files", archive.len());
+        log::info!(
+            "ZIP file validated successfully, contains {} files",
+            archive.len()
+        );
         Ok(())
     })
     .await
@@ -420,7 +463,9 @@ pub async fn download_file(
             }
 
             let chunk = chunk.map_err(|e| format!("Download error: {}", e))?;
-            file.write_all(&chunk).await.map_err(|e| format!("Write error: {}", e))?;
+            file.write_all(&chunk)
+                .await
+                .map_err(|e| format!("Write error: {}", e))?;
             downloaded += chunk.len() as u64;
 
             // 报告进度
@@ -430,7 +475,9 @@ pub async fn download_file(
             }
         }
 
-        file.flush().await.map_err(|e| format!("Flush error: {}", e))?;
+        file.flush()
+            .await
+            .map_err(|e| format!("Flush error: {}", e))?;
 
         if let Some(callback) = progress_callback {
             callback(1.0);
@@ -469,7 +516,13 @@ pub async fn download_file_with_fallback(
     cancellation_token: CancellationToken,
 ) -> Result<(), String> {
     // 首先尝试原始 URL
-    let result = download_file(url, dest_path, progress_callback.clone(), cancellation_token.clone()).await;
+    let result = download_file(
+        url,
+        dest_path,
+        progress_callback.clone(),
+        cancellation_token.clone(),
+    )
+    .await;
 
     // 如果失败，检查是否使用了镜像
     if result.is_err() {
@@ -482,12 +535,21 @@ pub async fn download_file_with_fallback(
             || original_url.contains("fastgit.org");
 
         if needs_fallback {
-            log::warn!("Mirror download failed: {}, trying GitHub official URL", result.as_ref().err().unwrap());
+            log::warn!(
+                "Mirror download failed: {}, trying GitHub official URL",
+                result.as_ref().err().unwrap()
+            );
 
             // 尝试从原始 GitHub URL 下载
             if let Some(github_url) = convert_mirror_to_github_url(&original_url) {
                 log::info!("Retrying with GitHub official URL: {}", github_url);
-                return download_file(&github_url, dest_path, progress_callback, cancellation_token).await;
+                return download_file(
+                    &github_url,
+                    dest_path,
+                    progress_callback,
+                    cancellation_token,
+                )
+                .await;
             }
         }
     }
@@ -507,14 +569,16 @@ fn convert_mirror_to_github_url(mirror_url: &str) -> Option<String> {
     // 从 gitclone.com URL 提取原始 URL
     if mirror_url.contains("gitclone.com/github.com/") {
         // 格式: https://gitclone.com/github.com/... -> https://github.com/...
-        let without_prefix = mirror_url.replace("https://gitclone.com/github.com/", "https://github.com/");
+        let without_prefix =
+            mirror_url.replace("https://gitclone.com/github.com/", "https://github.com/");
         return Some(without_prefix);
     }
 
     // 从 fastgit.org URL 提取原始 URL
     if mirror_url.contains("download.fastgit.org/") {
         // 格式: https://download.fastgit.org/... -> https://github.com/...
-        let without_prefix = mirror_url.replace("https://download.fastgit.org/", "https://github.com/");
+        let without_prefix =
+            mirror_url.replace("https://download.fastgit.org/", "https://github.com/");
         return Some(without_prefix);
     }
 
@@ -523,7 +587,11 @@ fn convert_mirror_to_github_url(mirror_url: &str) -> Option<String> {
 
 /// 根据当前下载源配置转换下载 URL
 /// 确保即使版本列表缓存了旧的 URL，也能使用当前设置的下载源
-fn convert_url_with_current_source(cached_url: &str, current_source: &DownloadSource, custom_mirror_url: &str) -> String {
+fn convert_url_with_current_source(
+    cached_url: &str,
+    current_source: &DownloadSource,
+    custom_mirror_url: &str,
+) -> String {
     // 如果 URL 已经是官方 GitHub URL，直接返回
     if cached_url.starts_with("https://github.com/") {
         return cached_url.to_string();
@@ -552,7 +620,9 @@ fn convert_url_with_current_source(cached_url: &str, current_source: &DownloadSo
             if !custom_mirror_url.is_empty() {
                 let mirror_url = custom_mirror_url.trim().trim_end_matches('/');
                 // 对于自定义镜像，尝试去除原始URL的 https:// 前缀
-                let url_without_protocol = original_url.strip_prefix("https://").unwrap_or(&original_url);
+                let url_without_protocol = original_url
+                    .strip_prefix("https://")
+                    .unwrap_or(&original_url);
                 format!("{}/{}", mirror_url, url_without_protocol)
             } else {
                 // 如果没有配置自定义镜像URL，使用官方源
@@ -563,8 +633,16 @@ fn convert_url_with_current_source(cached_url: &str, current_source: &DownloadSo
 }
 
 /// 解压 ZIP 文件
-pub async fn extract_zip(zip_path: &PathBuf, dest_dir: &PathBuf, cancellation_token: CancellationToken) -> Result<(), String> {
-    log::info!("Extracting: {} to {}", zip_path.display(), dest_dir.display());
+pub async fn extract_zip(
+    zip_path: &PathBuf,
+    dest_dir: &PathBuf,
+    cancellation_token: CancellationToken,
+) -> Result<(), String> {
+    log::info!(
+        "Extracting: {} to {}",
+        zip_path.display(),
+        dest_dir.display()
+    );
 
     let zip_path = zip_path.clone();
     let dest_dir = dest_dir.clone();
@@ -576,8 +654,8 @@ pub async fn extract_zip(zip_path: &PathBuf, dest_dir: &PathBuf, cancellation_to
             return Err("Extraction cancelled".to_string());
         }
 
-        let file =
-            std::fs::File::open(&zip_path).map_err(|e| format!("Failed to open zip file: {}", e))?;
+        let file = std::fs::File::open(&zip_path)
+            .map_err(|e| format!("Failed to open zip file: {}", e))?;
 
         let mut archive =
             zip::ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
@@ -591,8 +669,9 @@ pub async fn extract_zip(zip_path: &PathBuf, dest_dir: &PathBuf, cancellation_to
                 return Err("Extraction cancelled".to_string());
             }
 
-            let mut file =
-                archive.by_index(i).map_err(|e| format!("Failed to get file from archive: {}", e))?;
+            let mut file = archive
+                .by_index(i)
+                .map_err(|e| format!("Failed to get file from archive: {}", e))?;
 
             let outpath = match file.enclosed_name() {
                 Some(path) => dest_dir.join(path),

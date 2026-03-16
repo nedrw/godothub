@@ -22,6 +22,7 @@ pub struct GodotInstall {
     pub last_used: Option<DateTime<Utc>>,
 }
 
+#[allow(dead_code)]
 impl GodotInstall {
     /// 创建一个新的 GodotInstall
     pub fn new(version: String, variant: GodotVariant, path: PathBuf) -> Self {

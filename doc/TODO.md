@@ -1,7 +1,7 @@
 # Godot Hub - 待办事项
 
 **当前版本**: v0.1.0  
-**构建状态**: 可编译运行，核心下载/管理功能可用，P0 缺陷已全部修复
+**构建状态**: 可编译运行，核心下载/管理功能可用，P0 缺陷已全部修复，编译零 warning
 
 ---
 
@@ -22,7 +22,12 @@
 - [x] **搜索栏无效** ✅ 已修复（`ui/download_dialog.rs` + `state/app_state.rs`）  
   在 `AppState` 中新增 `download_search_text: String`（`#[serde(skip)]`，帧间持久化）；
   `draw_search_bar` 函数签名改为接收 `state: &mut AppState`，`TextEdit` 绑定到
-  `state.download_search_text`，彻底解决每帧重置问题。
+  `state.download_search_text`，彻底解决每帧重置问题。  
+  `draw_version_groups` 中增加版本号实时过滤（大小写不敏感，空查询显示全部）。
+
+- [x] **`validate_godot_executable` macOS 误报** ✅ 已修复（`services/launcher.rs`）  
+  原实现仅检查 `is_file()`，macOS `.app` bundle 是目录，导致验证失败。  
+  现改为 `exec_path.is_file() || exec_path.is_dir()`，兼容所有平台。
 
 ---
 
@@ -115,15 +120,27 @@
 |------|------|------|
 | 版本下载 | ✅ 完整 | 流式下载、进度、取消、重试、解压 |
 | 版本安装管理 | ✅ 完整 | 扫描、删除（含确认对话框）、启动 |
-| macOS 启动 | ✅ 已修复 | `.app` bundle 检测修复，`open` 命令可正常启动 |
+| macOS 启动 | ✅ 已修复 | `.app` bundle 检测修复，`open` 命令可正常启动；`validate_godot_executable` 兼容目录路径 |
 | GitHub API | ✅ 完整 | 拉取 releases、平台匹配、镜像回退 |
 | 自定义镜像 | ✅ 可用 | 用户填写 URL，自动代理 API 和下载 |
 | 下载队列计数 | ✅ 已修复 | 过滤特殊 key，数量显示正确；Cancel All 逻辑修正 |
-| 搜索栏 | 🟡 部分 | 输入持久化已修复；筛选过滤逻辑待实现（P2） |
+| 搜索栏 | ✅ 已修复 | 输入持久化 + 版本号实时过滤均已实现；Filter 变体筛选待实现（P2） |
 | 主题切换 | 🟡 部分 | Dark/Light 正常，System 未实现 |
 | 项目管理 | 🔴 占位 | 扫描可用，其余操作均为 TODO |
 | 收藏/使用时间 | 🔴 缺失 | 内存状态，重启丢失 |
 | 更新检查 | 🔴 缺失 | 配置开关存在，逻辑未实现 |
+
+---
+
+## 🧹 已完成的代码清理（warning 归零）
+
+本次清理将编译 warning 从 51 个降至 0：
+
+| 类型 | 处理方式 | 涉及位置 |
+|------|---------|---------|
+| **删除死代码** | 彻底移除 | `utils/region.rs`（整个模块）、`style.rs` 空 `colors` 模块及 `BADGE_BLUE` 常量、`github_api.rs` 两个 wrapper 函数、`download_dialog.rs` 四个未接入函数、`projects_panel.rs` `create_sample_projects()` |
+| **修复机械错误** | 直接修正 | 4 处未使用 import（`Ordering`、`Mutex`、`download_state`、`fetch_all_versions_with_source`）、`mut archive` 去掉多余 `mut`、`extract_callback` 加 `_` 前缀 |
+| **未来 API 保留** | `#[allow(dead_code)]` | 模型层方法（`GodotInstall`/`GodotVersion`/`GodotVariant`）、工具层（`file_utils.rs` 模块级）、服务接口（`launcher.rs`、`download_state` 子项）、配置方法（`AppConfig`/`DownloadSource`/`Theme`）、状态方法（`AppState` impl 中 6 个工具方法）、UI 辅助（`style.rs` 未使用常量/函数，`settings_panel.rs` 2 个工具函数） |
 
 ---
 
