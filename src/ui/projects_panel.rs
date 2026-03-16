@@ -48,8 +48,10 @@ pub struct ProjectInfo {
 /// 项目动作（从项目卡片触发）
 #[derive(Debug, Clone)]
 pub enum ProjectAction {
-    /// 打开项目（路径, Godot版本）
-    Open(PathBuf, String),
+    /// 编辑项目（路径, Godot版本）
+    Edit(PathBuf, String),
+    /// 运行项目（路径, Godot版本）
+    Play(PathBuf, String),
     /// 切换收藏状态
     ToggleFavorite(PathBuf),
     /// 从列表中移除（仅隐藏，不删除文件）
@@ -354,12 +356,27 @@ fn draw_project_item(
 
                 ui.add_space(8.0);
 
+                // Play 按钮（运行游戏）
                 if ui
-                    .add(success_button("Open"))
-                    .on_hover_text(format!("Open in Godot {}", project.godot_version))
+                    .add(success_button("▶ Play"))
+                    .on_hover_text(format!("Run project with Godot {}", project.godot_version))
                     .clicked()
                 {
-                    action = Some(ProjectAction::Open(
+                    action = Some(ProjectAction::Play(
+                        project.path.clone(),
+                        project.godot_version.clone(),
+                    ));
+                }
+
+                ui.add_space(4.0);
+
+                // Edit 按钮（编辑器模式）
+                if ui
+                    .add(primary_button("✎ Edit", theme))
+                    .on_hover_text(format!("Open in Godot {} editor", project.godot_version))
+                    .clicked()
+                {
+                    action = Some(ProjectAction::Edit(
                         project.path.clone(),
                         project.godot_version.clone(),
                     ));
@@ -414,7 +431,8 @@ fn draw_project_menu(ui: &mut egui::Ui, project: &ProjectInfo) -> Option<Project
 /// 执行项目动作（在 UI 迭代结束后调用）
 fn handle_project_action(action: ProjectAction, state: &mut AppState) {
     match action {
-        ProjectAction::Open(path, version) => open_project(state, &path, &version),
+        ProjectAction::Edit(path, version) => open_project(state, &path, &version, true),
+        ProjectAction::Play(path, version) => open_project(state, &path, &version, false),
         ProjectAction::ToggleFavorite(path) => {
             state.project_meta_store.toggle_favorite(&path);
             state.project_meta_store.save_quiet();
@@ -450,16 +468,23 @@ fn handle_project_action(action: ProjectAction, state: &mut AppState) {
 }
 
 /// 打开项目：找到匹配的 Godot 安装，以项目路径启动
-fn open_project(state: &mut AppState, project_path: &Path, version: &str) {
+///
+/// # Arguments
+/// * `state` - 应用状态
+/// * `project_path` - 项目路径
+/// * `version` - 项目所需的 Godot 版本
+/// * `editor_mode` - 是否以编辑器模式启动（true = 编辑器模式，false = 运行模式）
+fn open_project(state: &mut AppState, project_path: &Path, version: &str, editor_mode: bool) {
     match find_best_godot_for_version(&state.installed_versions, version) {
         Some(match_result) => {
-            // 如果版本精确匹配，直接打开项目
-            if match_result.is_exact_match {
+            // 如果版本精确匹配，或者编辑模式，直接打开项目
+            if match_result.is_exact_match || editor_mode {
                 let exec_path = match_result.install.path.clone();
-                match launch_godot_with_project(&exec_path, project_path) {
+                match launch_godot_with_project(&exec_path, project_path, editor_mode) {
                     Ok(_) => {
                         log::info!(
-                            "Opened '{}' with Godot {}",
+                            "{} '{}' with Godot {}",
+                            if editor_mode { "Edited" } else { "Played" },
                             project_path.display(),
                             match_result.install.version
                         );
@@ -469,7 +494,7 @@ fn open_project(state: &mut AppState, project_path: &Path, version: &str) {
                     Err(e) => log::error!("Failed to open project: {}", e),
                 }
             } else {
-                // 版本不匹配，弹出确认对话框
+                // 版本不匹配且是运行模式，弹出确认对话框
                 state.version_mismatch_confirm = Some(VersionMismatchConfirmState {
                     project_path: project_path.to_path_buf(),
                     required_version: version.to_string(),
@@ -810,13 +835,13 @@ fn draw_version_mismatch_confirm_dialog(
         });
 
     if do_open {
-        // 用户确认，使用选中的版本打开项目
+        // 用户确认，使用选中的版本运行项目（运行模式）
         let exec_path = confirm.install_path.clone();
         let project_path = confirm.project_path.clone();
-        match launch_godot_with_project(&exec_path, &project_path) {
+        match launch_godot_with_project(&exec_path, &project_path, false) {
             Ok(_) => {
                 log::info!(
-                    "Opened '{}' with Godot {} (version mismatch confirmed by user)",
+                    "Played '{}' with Godot {} (version mismatch confirmed by user)",
                     project_path.display(),
                     confirm.available_version
                 );

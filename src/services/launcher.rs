@@ -39,10 +39,15 @@ pub fn launch_godot(exec_path: &Path) -> Result<(), String> {
 /// # Arguments
 /// * `exec_path`    - Godot 可执行文件 / .app bundle 路径
 /// * `project_path` - 要打开的 Godot 项目目录路径
+/// * `editor_mode`   - 是否以编辑器模式启动（true = 编辑器模式，false = 运行模式）
 ///
 /// # Returns
 /// * `Result<(), String>` - 启动结果
-pub fn launch_godot_with_project(exec_path: &Path, project_path: &Path) -> Result<(), String> {
+pub fn launch_godot_with_project(
+    exec_path: &Path,
+    project_path: &Path,
+    editor_mode: bool,
+) -> Result<(), String> {
     if !exec_path.exists() {
         return Err(format!(
             "Godot executable not found at: {}",
@@ -51,12 +56,13 @@ pub fn launch_godot_with_project(exec_path: &Path, project_path: &Path) -> Resul
     }
 
     log::info!(
-        "Launching Godot: {} with project: {}",
+        "Launching Godot: {} with project: {} (editor_mode: {})",
         exec_path.display(),
-        project_path.display()
+        project_path.display(),
+        editor_mode
     );
 
-    let result = launch_with_project_for_current_platform(exec_path, project_path);
+    let result = launch_with_project_for_current_platform(exec_path, project_path, editor_mode);
 
     match result {
         Ok(_) => {
@@ -75,19 +81,26 @@ pub fn launch_godot_with_project(exec_path: &Path, project_path: &Path) -> Resul
 fn launch_with_project_for_current_platform(
     exec_path: &Path,
     project_path: &Path,
+    editor_mode: bool,
 ) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
 
+    let mut args = vec![
+        "/C".to_string(),
+        "start".to_string(),
+        "".to_string(),
+        exec_path.display().to_string(),
+    ];
+
+    if editor_mode {
+        args.push("-e".to_string()); // Editor mode: open project in editor instead of running it
+    }
+
+    args.push("--path".to_string());
+    args.push(project_path.display().to_string());
+
     Command::new("cmd")
-        .args([
-            "/C",
-            "start",
-            "",
-            &exec_path.display().to_string(),
-            "-e", // Editor mode: open project in editor instead of running it
-            "--path",
-            &project_path.display().to_string(),
-        ])
+        .args(&args)
         .spawn()
         .map_err(|e| format!("Failed to start Godot with project: {}", e))?;
 
@@ -98,10 +111,15 @@ fn launch_with_project_for_current_platform(
 fn launch_with_project_for_current_platform(
     exec_path: &Path,
     project_path: &Path,
+    editor_mode: bool,
 ) -> Result<(), String> {
-    Command::new(exec_path)
-        .arg("-e") // Editor mode: open project in editor instead of running it
-        .arg("--path")
+    let mut cmd = Command::new(exec_path);
+
+    if editor_mode {
+        cmd.arg("-e"); // Editor mode: open project in editor instead of running it
+    }
+
+    cmd.arg("--path")
         .arg(project_path)
         .spawn()
         .map_err(|e| format!("Failed to start Godot with project: {}", e))?;
@@ -113,13 +131,17 @@ fn launch_with_project_for_current_platform(
 fn launch_with_project_for_current_platform(
     exec_path: &Path,
     project_path: &Path,
+    editor_mode: bool,
 ) -> Result<(), String> {
     // macOS 通过 `open` 命令启动 .app bundle，使用 `--args` 传递 Godot 参数
-    Command::new("open")
-        .arg(exec_path)
-        .arg("--args")
-        .arg("-e") // Editor mode: open project in editor instead of running it
-        .arg("--path")
+    let mut cmd = Command::new("open");
+    cmd.arg(exec_path).arg("--args");
+
+    if editor_mode {
+        cmd.arg("-e"); // Editor mode: open project in editor instead of running it
+    }
+
+    cmd.arg("--path")
         .arg(project_path)
         .spawn()
         .map_err(|e| format!("Failed to start Godot with project: {}", e))?;
