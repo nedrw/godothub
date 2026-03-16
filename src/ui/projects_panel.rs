@@ -219,7 +219,7 @@ fn draw_projects_list(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeCol
         section_header(
             ui,
             state.config.theme,
-            "[D]",
+            "●",
             "Projects",
             Some(projects.len()),
         );
@@ -253,7 +253,7 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &mut AppState, colors: &T
     empty_state(
         ui,
         state.config.theme,
-        "[D]",
+        "●",
         "No Projects Found",
         "Create a new project or import an existing one to get started",
         Some("Create Project"),
@@ -325,7 +325,7 @@ fn draw_project_item(
                     }
                     if project.is_imported {
                         ui.add_space(4.0);
-                        badge(ui, "[I] Imported", colors.badge_purple);
+                        badge(ui, "● Imported", colors.badge_purple);
                     }
                 });
 
@@ -758,7 +758,7 @@ fn draw_version_mismatch_confirm_dialog(
         .show(ctx, |ui| {
             ui.vertical(|ui| {
                 // 警告图标
-                ui.label(RichText::new("[!]").size(48.0));
+                ui.label(RichText::new("⚠").size(48.0));
 
                 ui.add_space(12.0);
 
@@ -850,7 +850,7 @@ fn draw_delete_project_confirm_dialog(
         .show(ctx, |ui| {
             ui.vertical(|ui| {
                 // 警告图标
-                ui.label(RichText::new("[!]").size(48.0));
+                ui.label(RichText::new("⚠").size(48.0));
 
                 ui.add_space(12.0);
 

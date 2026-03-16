@@ -171,7 +171,7 @@ fn draw_download_queue_status(ui: &mut Ui, state: &mut AppState, colors: &ThemeC
         .fill(colors.accent_blue.linear_multiply(0.1))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new("[D]").size(16.0));
+                ui.label(RichText::new("●").size(16.0));
 
                 // 只统计活跃下载，过滤 _error / _extracting / _complete 等特殊状态 key
                 let count = state
@@ -248,7 +248,7 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
             .fill(colors.error.linear_multiply(0.1))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("[!]").size(16.0));
+                    ui.label(RichText::new("⚠").size(16.0));
                     ui.vertical(|ui| {
                         ui.label(
                             RichText::new("Failed to fetch version list")

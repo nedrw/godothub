@@ -415,7 +415,7 @@ fn draw_about_section(ui: &mut egui::Ui, theme: Theme, colors: &ThemeColors) {
             ui.vertical(|ui| {
                 // 应用名称和版本
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("[G]").size(32.0));
+                    ui.label(RichText::new("◆").size(32.0));
 
                     ui.add_space(12.0);
 

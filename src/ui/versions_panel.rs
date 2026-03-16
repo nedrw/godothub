@@ -64,7 +64,7 @@ fn draw_delete_confirm_dialog(
             ui.vertical(|ui| {
                 // 警告图标
                 ui.label(
-                    RichText::new("[!]")
+                    RichText::new("⚠")
                         .size(48.0)
                 );
 
@@ -167,7 +167,7 @@ fn draw_installed_section(ui: &mut egui::Ui, state: &mut AppState, colors: &Them
         section_header(
             ui,
             state.config.theme,
-            "[V]",
+            "▸",
             "Installed Versions",
             Some(state.installed_versions.len()),
         );
@@ -192,7 +192,7 @@ fn draw_empty_installed_state(ui: &mut egui::Ui, state: &mut AppState) {
     empty_state(
         ui,
         state.config.theme,
-        "[V]",
+        "▸",
         "No Godot Versions Installed",
         "Click 'Download New Version' to get started",
         Some("Download Now"),
@@ -215,7 +215,7 @@ fn draw_installed_version_card(
             // 左侧：版本图标
             ui.vertical(|ui| {
                 ui.add_space(4.0);
-                ui.label(RichText::new(if install.is_favorite { "★" } else { "[G]" }).size(32.0));
+                ui.label(RichText::new(if install.is_favorite { "★" } else { "◆" }).size(32.0));
             });
 
             ui.add_space(12.0);
@@ -260,12 +260,9 @@ fn draw_installed_version_card(
                 // 第三行：使用时间
                 if let Some(last_used) = &install.last_used {
                     ui.label(
-                        RichText::new(format!(
-                            "Last used: {}",
-                            last_used.format("%Y-%m-%d %H:%M")
-                        ))
-                        .small()
-                        .color(colors.text_secondary),
+                        RichText::new(format!("Last used: {}", last_used.format("%Y-%m-%d %H:%M")))
+                            .small()
+                            .color(colors.text_secondary),
                     );
                 }
             });
@@ -369,7 +366,7 @@ fn draw_available_section(ui: &mut egui::Ui, state: &mut AppState, colors: &Them
         section_header(
             ui,
             state.config.theme,
-            "[A]",
+            "●",
             "Available Versions",
             Some(available_count),
         );
@@ -614,7 +611,7 @@ fn draw_empty_available_state(ui: &mut egui::Ui, theme: Theme) {
     empty_state(
         ui,
         theme,
-        "[A]",
+        "●",
         "No Versions Available",
         "Unable to fetch version list from GitHub",
         Some("Refresh"),
