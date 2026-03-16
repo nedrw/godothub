@@ -257,10 +257,45 @@ pub mod spacing {
 
 /// 配置 egui 的视觉效果（支持主题切换）
 pub fn setup_visuals(ctx: &egui::Context, theme: Theme) {
-    let colors = ThemeColors::from_theme(theme);
+    // 配置字体以支持 Unicode 字符
+    let mut font_definitions = egui::FontDefinitions::default();
 
-    // Emoji 字体支持已移除（所有 emoji 已替换为纯文本符号）
-    // 使用默认字体即可
+    // 尝试加载系统字体作为回退字体
+    if let Some(system_font_path) = find_unicode_font_path() {
+        if let Ok(font_bytes) = std::fs::read(&system_font_path) {
+            // 添加系统字体
+            font_definitions.font_data.insert(
+                "system_unicode".to_owned(),
+                std::sync::Arc::new(egui::FontData::from_owned(font_bytes)),
+            );
+
+            // 将系统字体添加为回退字体（放在最后）
+            font_definitions
+                .families
+                .entry(egui::FontFamily::Proportional)
+                .or_default()
+                .push("system_unicode".to_owned());
+
+            font_definitions
+                .families
+                .entry(egui::FontFamily::Monospace)
+                .or_default()
+                .push("system_unicode".to_owned());
+
+            log::info!("Loaded system Unicode font: {}", system_font_path.display());
+        } else {
+            log::warn!(
+                "Failed to load system Unicode font from: {}",
+                system_font_path.display()
+            );
+        }
+    } else {
+        log::warn!("No system Unicode font found, using default fonts");
+    }
+
+    ctx.set_fonts(font_definitions);
+
+    let colors = ThemeColors::from_theme(theme);
 
     let mut visuals = match theme {
         Theme::Light => egui::Visuals::light(),
@@ -314,6 +349,64 @@ pub fn setup_visuals(ctx: &egui::Context, theme: Theme) {
     style.visuals.button_frame = true;
     style.visuals.collapsing_header_frame = true;
     ctx.set_style(style);
+}
+
+/// 查找系统中支持 Unicode 的字体路径
+fn find_unicode_font_path() -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        // macOS: 尝试几个常见的 Unicode 字体
+        let candidates = vec![
+            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+            "/Library/Fonts/Arial Unicode.ttf",
+            "/System/Library/Fonts/PingFang.ttc", // 中文字体，也支持很多 Unicode
+            "/System/Library/Fonts/STHeiti Light.ttc", // 黑体
+        ];
+
+        for path in candidates {
+            let path = std::path::PathBuf::from(path);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: Arial Unicode MS 或 Segoe UI Symbol
+        let candidates = vec![
+            "C:\\Windows\\Fonts\\arialuni.ttf",
+            "C:\\Windows\\Fonts\\seguiemj.ttf", // Segoe UI Emoji
+            "C:\\Windows\\Fonts\\seguisym.ttf", // Segoe UI Symbol
+        ];
+
+        for path in candidates {
+            let path = std::path::PathBuf::from(path);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux: DejaVu Sans 或 Noto Sans
+        let candidates = vec![
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        ];
+
+        for path in candidates {
+            let path = std::path::PathBuf::from(path);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+
+    None
 }
 
 /// 获取当前主题的颜色
