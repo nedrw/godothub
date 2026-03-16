@@ -8,7 +8,7 @@ use crate::ui::style::{
     badge, card_frame, danger_button, panel_header, primary_button, secondary_button, spacing,
     ThemeColors,
 };
-use crate::utils::open_folder;
+use crate::utils::{open_folder, open_url};
 
 /// 绘制设置面板
 pub fn draw_settings_panel(ui: &mut egui::Ui, state: &mut AppState) {
@@ -447,16 +447,14 @@ fn draw_about_section(ui: &mut egui::Ui, theme: Theme, colors: &ThemeColors) {
                 ui.horizontal(|ui| {
                     let github_btn = secondary_button("🐙 GitHub", theme);
                     if ui.add(github_btn).clicked() {
-                        // TODO: 打开 GitHub 页面
-                        log::info!("Opening GitHub page");
+                        open_url("https://github.com/gdHub/gdhub");
                     }
 
                     ui.add_space(8.0);
 
                     let website_btn = secondary_button("🌐 Website", theme);
                     if ui.add(website_btn).clicked() {
-                        // TODO: 打开官方网站
-                        log::info!("Opening website");
+                        open_url("https://github.com/gdHub/gdhub#readme");
                     }
                 });
 

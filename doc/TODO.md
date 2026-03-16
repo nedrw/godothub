@@ -1,7 +1,7 @@
 # Godot Hub - 待办事项
 
 **当前版本**: v0.1.0  
-**构建状态**: 可编译运行，核心下载/管理功能可用，P0/P1（持久化）/P2 缺陷已全部修复，编译零 warning
+**构建状态**: 可编译运行，核心下载/管理功能可用，P0/P1（持久化 + 设置面板）/P2 缺陷已全部修复，编译零 warning
 
 ---
 
@@ -71,11 +71,14 @@
 
 ### 设置面板
 
-- [ ] **GitHub / Website 按钮无功能**（`draw_about_section()`）  
-  点击后仅打印日志。需要调用系统浏览器打开对应 URL。
+- [x] **GitHub / Website 按钮无功能** ✅ 已修复（`ui/settings_panel.rs` + `utils/file_utils.rs`）  
+  新增 `pub fn open_url(url: &str)` 至 `utils/file_utils.rs`（跨平台：macOS 用 `open`，Linux 用 `xdg-open`，Windows 用 `cmd /c start`），在 `utils/mod.rs` 中 `pub use file_utils::open_url` re-export；  
+  `draw_about_section()` 中 GitHub 按钮调用 `open_url("https://github.com/gdHub/gdhub")`，Website 按钮调用 `open_url("https://github.com/gdHub/gdhub#readme")`，TODO 注释与 `log::info!` 占位逻辑一并移除。
 
-- [ ] **`check_updates_on_start` 无实现**  
-  配置项 UI 已有，但应用启动时没有对应的版本检查逻辑调用。
+- [x] **`check_updates_on_start` 无实现** ✅ 已修复（`main.rs`）  
+  `GodotHubApp::default()` 中将原先无条件调用的 `app_state.refresh_available_versions()` 改为受 `app_state.config.check_updates_on_start` 控制：  
+  - 默认值 `true`：启动时立即联网拉取可用版本列表，行为与修复前一致；  
+  - 用户手动关闭后：跳过自动刷新，下载对话框初始为空，用户可在对话框内手动点击 Retry 触发刷新。
 
 ---
 
@@ -146,7 +149,8 @@
 | 主题切换 | ✅ 完整 | Dark/Light/System 均已实现；System 通过 `detect_system_dark_mode()` 每 30 秒轮询，动态响应系统主题切换 |
 | 项目管理 | 🔴 占位 | 扫描可用，其余操作均为 TODO |
 | 收藏/使用时间 | ✅ 已修复 | `~/.gdhub/installed.json` 持久化；切换收藏/启动/删除均触发写盘；原子写入防损坏 |
-| 更新检查 | 🔴 缺失 | 配置开关存在，逻辑未实现 |
+| 更新检查 | ✅ 已修复 | `check_updates_on_start=true`（默认）时启动自动刷新；`false` 时跳过，用户可在下载对话框手动 Retry |
+| 设置面板链接 | ✅ 已修复 | GitHub/Website 按钮调用 `utils::open_url()`，跨平台打开系统默认浏览器 |
 
 ---
 

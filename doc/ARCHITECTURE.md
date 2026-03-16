@@ -399,9 +399,9 @@ AppState::remove_installed_version(index)
 
 | 接口 | 位置 | 问题描述 |
 |------|------|---------|
-| "GitHub" 按钮 | `draw_about_section()` | 仅打印日志，未打开浏览器 |
-| "Website" 按钮 | `draw_about_section()` | 仅打印日志，未打开浏览器 |
-| `check_updates_on_start` | `AppConfig` | UI 开关已实现，但无对应的更新检查逻辑 |
+| "GitHub" 按钮 | `draw_about_section()` | ✅ **已修复**：调用 `utils::open_url("https://github.com/gdHub/gdhub")`，通过系统默认浏览器打开；跨平台实现见 `utils/file_utils.rs::open_url()` |
+| "Website" 按钮 | `draw_about_section()` | ✅ **已修复**：调用 `utils::open_url("https://github.com/gdHub/gdhub#readme")`；与 GitHub 按钮共用同一 `open_url` 工具函数 |
+| `check_updates_on_start` | `AppConfig` + `main.rs` | ✅ **已修复**：`GodotHubApp::default()` 中原无条件调用的 `refresh_available_versions()` 改为受配置开关控制；默认 `true` 行为不变，设为 `false` 时跳过自动刷新，用户可在下载对话框手动触发 Retry |
 
 ### 10.3 下载对话框（download_dialog.rs）
 
@@ -422,11 +422,12 @@ AppState::remove_installed_version(index)
 | `Theme::System` | `ThemeColors::from_theme()` | ✅ **已实现（动态轮询）**：新增 `pub fn detect_system_dark_mode() -> bool`，采用**定时轮询**策略：缓存层由两个静态原子变量构成——`CACHED: AtomicBool`（深色标志）+ `LAST_CHECK: AtomicU64`（上次检测时间戳），读写均使用 `Relaxed` 序，无锁线程安全；轮询间隔由常量 `DARK_MODE_POLL_INTERVAL_SECS = 30` 控制，`LAST_CHECK` 初始值为 0，保证首次调用必触发实际检测。检测方式：macOS 调用 `defaults read -g AppleInterfaceStyle`，Windows 读取注册表 `AppsUseLightTheme`（需 `winreg` crate），Linux 调用 `gsettings get org.gnome.desktop.interface color-scheme`。`ThemeColors::from_theme` 和 `setup_visuals` 均已接入；由于 `update()` 每 100 ms 重绘，系统主题切换后最多 30 秒内自动生效。 |
 | `pub mod colors {}` | `style.rs` | ✅ **已删除**（上一轮 warning 清零时移除） |
 
-### 10.5 工具模块（utils/region.rs）
+### 10.5 工具模块（utils/file_utils.rs）
 
 | 接口 | 位置 | 问题描述 |
 |------|------|---------|
 | `should_use_china_mirror()` | `region.rs` | ✅ **已删除**（上一轮 warning 清零时移除整个模块） |
+| `open_url(url: &str)` | `utils/file_utils.rs` | ✅ **已新增**：跨平台 URL 打开工具函数；macOS 用 `open`，Linux 用 `xdg-open`，Windows 用 `cmd /c start`；在 `utils/mod.rs` 中 `pub use file_utils::open_url` re-export，供设置面板 GitHub/Website 按钮调用 |
 
 ### 10.6 状态持久化
 

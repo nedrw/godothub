@@ -32,8 +32,17 @@ impl Default for GodotHubApp {
         // 创建共享状态指针，用于异步任务更新进度
         app_state.create_shared_state();
 
-        // 立即启动版本列表刷新
-        app_state.refresh_available_versions();
+        // 根据配置决定是否在启动时自动拉取可用版本列表
+        // check_updates_on_start = true（默认）：立即联网刷新，用户打开下载对话框即可看到版本
+        // check_updates_on_start = false：跳过自动刷新，用户可在下载对话框中手动点击 Retry 触发
+        if app_state.config.check_updates_on_start {
+            log::info!(
+                "check_updates_on_start is enabled, fetching available versions on startup..."
+            );
+            app_state.refresh_available_versions();
+        } else {
+            log::info!("check_updates_on_start is disabled, skipping automatic version refresh on startup.");
+        }
 
         Self { state: app_state }
     }

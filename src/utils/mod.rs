@@ -4,3 +4,4 @@ pub mod file_utils;
 
 // Re-export commonly used utility functions
 pub use file_utils::open_folder;
+pub use file_utils::open_url;

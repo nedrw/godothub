@@ -193,3 +193,40 @@ pub fn open_folder(path: &Path) {
             .ok();
     }
 }
+
+/// 在系统默认浏览器中打开指定 URL（跨平台）
+///
+/// # Arguments
+/// * `url` - 要打开的 URL 字符串
+///
+/// # Platform Notes
+/// - macOS: 使用 `open` 命令
+/// - Linux: 使用 `xdg-open` 命令
+/// - Windows: 使用 `cmd /c start` 命令
+pub fn open_url(url: &str) {
+    log::info!("Opening URL: {}", url);
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Err(e) = std::process::Command::new("open").arg(url).spawn() {
+            log::error!("Failed to open URL on macOS: {}", e);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Err(e) = std::process::Command::new("xdg-open").arg(url).spawn() {
+            log::error!("Failed to open URL on Linux: {}", e);
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Err(e) = std::process::Command::new("cmd")
+            .args(["/c", "start", "", url])
+            .spawn()
+        {
+            log::error!("Failed to open URL on Windows: {}", e);
+        }
+    }
+}
