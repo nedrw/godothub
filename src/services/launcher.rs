@@ -84,6 +84,7 @@ fn launch_with_project_for_current_platform(
             "start",
             "",
             &exec_path.display().to_string(),
+            "-e", // Editor mode: open project in editor instead of running it
             "--path",
             &project_path.display().to_string(),
         ])
@@ -99,6 +100,7 @@ fn launch_with_project_for_current_platform(
     project_path: &Path,
 ) -> Result<(), String> {
     Command::new(exec_path)
+        .arg("-e") // Editor mode: open project in editor instead of running it
         .arg("--path")
         .arg(project_path)
         .spawn()
@@ -116,6 +118,7 @@ fn launch_with_project_for_current_platform(
     Command::new("open")
         .arg(exec_path)
         .arg("--args")
+        .arg("-e") // Editor mode: open project in editor instead of running it
         .arg("--path")
         .arg(project_path)
         .spawn()
