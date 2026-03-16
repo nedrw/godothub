@@ -262,17 +262,22 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
         ui.add_space(8.0);
     }
 
-    // 根据搜索文本过滤版本（大小写不敏感，空文本显示全部）
+    // 根据搜索文本过滤版本（大小写不敏感，匹配版本号或变体名称，空文本显示全部）
+    // 例：输入 "4.3" 匹配版本号；输入 "mono" 匹配 Mono 变体；输入 "standard" 匹配标准版
     let search_query = state.download_search_text.trim().to_lowercase();
     let versions: Vec<GodotVersion> = state
         .available_versions
         .iter()
-        .filter(|v| search_query.is_empty() || v.version.to_lowercase().contains(&search_query))
+        .filter(|v| {
+            search_query.is_empty()
+                || v.version.to_lowercase().contains(&search_query)
+                || v.variant.name().to_lowercase().contains(&search_query)
+        })
         .cloned()
         .collect();
 
-    // 如果版本列表为空
-    if versions.is_empty() {
+    // 无任何版本数据（未获取或获取失败）
+    if state.available_versions.is_empty() {
         ui.vertical_centered(|ui| {
             ui.add_space(40.0);
             ui.label(
@@ -288,6 +293,32 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
 
             if ui.add(retry_btn).clicked() {
                 state.refresh_available_versions();
+            }
+            ui.add_space(40.0);
+        });
+        return;
+    }
+
+    // 有版本数据但搜索无匹配结果
+    if versions.is_empty() {
+        ui.vertical_centered(|ui| {
+            ui.add_space(40.0);
+            ui.label(
+                RichText::new(format!(
+                    "No results for \"{}\"",
+                    state.download_search_text.trim()
+                ))
+                .weak()
+                .color(colors.text_muted),
+            );
+            ui.add_space(8.0);
+
+            let clear_btn =
+                egui::Button::new(RichText::new("✕ Clear Search").color(egui::Color32::WHITE))
+                    .fill(colors.bg_hover);
+
+            if ui.add(clear_btn).clicked() {
+                state.download_search_text.clear();
             }
             ui.add_space(40.0);
         });

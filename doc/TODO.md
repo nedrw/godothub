@@ -23,7 +23,11 @@
   在 `AppState` 中新增 `download_search_text: String`（`#[serde(skip)]`，帧间持久化）；
   `draw_search_bar` 函数签名改为接收 `state: &mut AppState`，`TextEdit` 绑定到
   `state.download_search_text`，彻底解决每帧重置问题。  
-  `draw_version_groups` 中增加版本号实时过滤（大小写不敏感，空查询显示全部）。
+  `draw_version_groups` 中增加实时过滤，同时匹配**版本号**和**变体名称**（大小写不敏感）：
+  - 输入 `"4.3"` → 过滤版本号
+  - 输入 `"mono"` → 仅显示 Mono 变体
+  - 输入 `"standard"` → 仅显示标准版  
+  空查询显示全部；无数据时显示 Retry 按钮；有数据但无匹配时显示 `"No results for '...'"` + **✕ Clear Search** 按钮。
 
 - [x] **`validate_godot_executable` macOS 误报** ✅ 已修复（`services/launcher.rs`）  
   原实现仅检查 `is_file()`，macOS `.app` bundle 是目录，导致验证失败。  
@@ -124,7 +128,7 @@
 | GitHub API | ✅ 完整 | 拉取 releases、平台匹配、镜像回退 |
 | 自定义镜像 | ✅ 可用 | 用户填写 URL，自动代理 API 和下载 |
 | 下载队列计数 | ✅ 已修复 | 过滤特殊 key，数量显示正确；Cancel All 逻辑修正 |
-| 搜索栏 | ✅ 已修复 | 输入持久化 + 版本号实时过滤均已实现；Filter 变体筛选待实现（P2） |
+| 搜索栏 | ✅ 已修复 | 输入持久化 + 版本号/变体名称实时过滤均已实现；Filter 按钮下拉筛选待实现（P2） |
 | 主题切换 | 🟡 部分 | Dark/Light 正常，System 未实现 |
 | 项目管理 | 🔴 占位 | 扫描可用，其余操作均为 TODO |
 | 收藏/使用时间 | 🔴 缺失 | 内存状态，重启丢失 |
