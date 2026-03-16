@@ -13,7 +13,7 @@ pub fn draw_download_dialog(ui: &mut Ui, state: &mut AppState) {
     let theme = state.config.theme;
     let colors = ThemeColors::from_theme(theme);
 
-    Window::new("⬇️ Download Godot")
+    Window::new("Download Godot")
         .collapsible(false)
         .resizable(true)
         .default_size([650.0, 550.0])
@@ -148,7 +148,7 @@ fn draw_search_bar(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) {
         ui.add_sized(
             [ui.available_width() - 120.0, 28.0],
             egui::TextEdit::singleline(&mut state.download_search_text)
-                .hint_text("🔍 Search versions..."),
+                .hint_text("Search versions..."),
         );
 
         // 筛选按钮
@@ -171,7 +171,7 @@ fn draw_download_queue_status(ui: &mut Ui, state: &mut AppState, colors: &ThemeC
         .fill(colors.accent_blue.linear_multiply(0.1))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new("⬇️").size(16.0));
+                ui.label(RichText::new("[D]").size(16.0));
 
                 // 只统计活跃下载，过滤 _error / _extracting / _complete 等特殊状态 key
                 let count = state
@@ -248,7 +248,7 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
             .fill(colors.error.linear_multiply(0.1))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("⚠️").size(16.0));
+                    ui.label(RichText::new("[!]").size(16.0));
                     ui.vertical(|ui| {
                         ui.label(
                             RichText::new("Failed to fetch version list")
@@ -490,7 +490,7 @@ fn draw_download_button(
     state: &mut AppState,
     colors: &ThemeColors,
 ) {
-    let download_btn = egui::Button::new(RichText::new("⬇️ Download").color(egui::Color32::WHITE))
+    let download_btn = egui::Button::new(RichText::new("Download").color(egui::Color32::WHITE))
         .fill(colors.accent_blue)
         .min_size(Vec2::new(110.0, 28.0));
 

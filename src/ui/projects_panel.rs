@@ -124,7 +124,7 @@ fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeColo
         );
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let scan_btn = egui::Button::new(RichText::new("🔍 Scan").color(colors.text_primary))
+            let scan_btn = egui::Button::new(RichText::new("Scan").color(colors.text_primary))
                 .fill(colors.bg_secondary)
                 .stroke(Stroke::new(1.0, colors.border))
                 .min_size(Vec2::new(100.0, spacing::BUTTON_HEIGHT));
@@ -148,7 +148,7 @@ fn draw_action_buttons(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeCo
     ui.horizontal(|ui| {
         // 新建项目
         if ui
-            .add(success_button("➕ New Project"))
+            .add(success_button("+ New Project"))
             .on_hover_text("Create a new Godot project")
             .clicked()
         {
@@ -161,7 +161,7 @@ fn draw_action_buttons(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeCo
 
         // 导入项目
         if ui
-            .add(primary_button("📂 Import Project", state.config.theme))
+            .add(primary_button("Import Project", state.config.theme))
             .on_hover_text("Import an existing Godot project from any directory")
             .clicked()
         {
@@ -172,7 +172,7 @@ fn draw_action_buttons(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeCo
 
         // 打开项目目录
         let open_dir_btn =
-            egui::Button::new(RichText::new("📁 Open Projects Folder").color(colors.text_primary))
+            egui::Button::new(RichText::new("Open Projects Folder").color(colors.text_primary))
                 .fill(colors.bg_secondary)
                 .stroke(Stroke::new(1.0, colors.border))
                 .min_size(Vec2::new(160.0, spacing::BUTTON_HEIGHT));
@@ -219,7 +219,7 @@ fn draw_projects_list(ui: &mut egui::Ui, state: &mut AppState, colors: &ThemeCol
         section_header(
             ui,
             state.config.theme,
-            "📁",
+            "[D]",
             "Projects",
             Some(projects.len()),
         );
@@ -253,10 +253,10 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &mut AppState, colors: &T
     empty_state(
         ui,
         state.config.theme,
-        "📁",
+        "[D]",
         "No Projects Found",
         "Create a new project or import an existing one to get started",
-        Some("➕ Create Project"),
+        Some("Create Project"),
         Some(&mut || {
             open_new = true;
         }),
@@ -276,7 +276,7 @@ fn draw_empty_projects_state(ui: &mut egui::Ui, state: &mut AppState, colors: &T
         .inner_margin(egui::Margin::same(12))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new("💡").size(20.0));
+                ui.label(RichText::new("Tip:").size(20.0));
                 ui.add_space(8.0);
                 ui.label(
                     RichText::new("Tip: You can change the projects directory in Settings")
@@ -302,7 +302,7 @@ fn draw_project_item(
             // 左侧：图标
             ui.vertical(|ui| {
                 ui.add_space(4.0);
-                ui.label(RichText::new(if project.is_favorite { "⭐" } else { "📁" }).size(28.0));
+                ui.label(RichText::new(if project.is_favorite { "★" } else { "D" }).size(28.0));
             });
 
             ui.add_space(12.0);
@@ -321,11 +321,11 @@ fn draw_project_item(
 
                     if project.is_favorite {
                         ui.add_space(4.0);
-                        badge(ui, "⭐ Favorite", colors.warning);
+                        badge(ui, "★ Favorite", colors.warning);
                     }
                     if project.is_imported {
                         ui.add_space(4.0);
-                        badge(ui, "📥 Imported", colors.badge_purple);
+                        badge(ui, "[I] Imported", colors.badge_purple);
                     }
                 });
 
@@ -337,7 +337,7 @@ fn draw_project_item(
                 if let Some(last_opened) = &project.last_opened {
                     ui.label(
                         RichText::new(format!(
-                            "🕐 Last opened: {}",
+                            "Last opened: {}",
                             last_opened.format("%Y-%m-%d %H:%M")
                         ))
                         .small()
@@ -355,7 +355,7 @@ fn draw_project_item(
                 ui.add_space(8.0);
 
                 if ui
-                    .add(success_button("▶ Open"))
+                    .add(success_button("Open"))
                     .on_hover_text(format!("Open in Godot {}", project.godot_version))
                     .clicked()
                 {
@@ -374,10 +374,10 @@ fn draw_project_item(
 fn draw_project_menu(ui: &mut egui::Ui, project: &ProjectInfo) -> Option<ProjectAction> {
     let mut action: Option<ProjectAction> = None;
 
-    ui.menu_button("⋮", |ui| {
+    ui.menu_button("...", |ui| {
         ui.set_min_width(180.0);
 
-        if ui.button("📂 Open Folder").clicked() {
+        if ui.button("Open Folder").clicked() {
             action = Some(ProjectAction::OpenFolder(project.path.clone()));
             ui.close_menu();
         }
@@ -395,14 +395,14 @@ fn draw_project_menu(ui: &mut egui::Ui, project: &ProjectInfo) -> Option<Project
         ui.separator();
 
         // 从列表中移除（仅隐藏，不删除文件）
-        if ui.button("🗑 Remove from List").clicked() {
+        if ui.button("Remove from List").clicked() {
             action = Some(ProjectAction::Hide(project.path.clone()));
             ui.close_menu();
         }
 
         // 删除项目文件（需要二次确认）
         ui.add_space(4.0);
-        if ui.add(danger_button("⚠️ Delete Project Files")).clicked() {
+        if ui.add(danger_button("Delete Project Files")).clicked() {
             action = Some(ProjectAction::DeleteFiles(project.path.clone()));
             ui.close_menu();
         }
@@ -571,7 +571,7 @@ fn draw_new_project_dialog(ctx: &egui::Context, state: &mut AppState, colors: &T
     let mut close = false;
     let mut do_create = false;
 
-    egui::Window::new("➕ New Project")
+    egui::Window::new("New Project")
         .collapsible(false)
         .resizable(false)
         .min_width(440.0)
@@ -667,7 +667,7 @@ fn draw_new_project_dialog(ctx: &egui::Context, state: &mut AppState, colors: &T
 
             if launchable.is_empty() {
                 ui.label(
-                    RichText::new("⚠ No Godot versions installed. Please install one first.")
+                    RichText::new("No Godot versions installed. Please install one first.")
                         .color(colors.warning),
                 );
             } else {
@@ -698,7 +698,7 @@ fn draw_new_project_dialog(ctx: &egui::Context, state: &mut AppState, colors: &T
             // 错误提示
             if let Some(d) = state.new_project_dialog.as_ref() {
                 if let Some(ref err) = d.error.clone() {
-                    ui.label(RichText::new(format!("⚠ {}", err)).color(colors.error));
+                    ui.label(RichText::new(format!("{}", err)).color(colors.error));
                     ui.add_space(8.0);
                 }
             }
@@ -750,7 +750,7 @@ fn draw_version_mismatch_confirm_dialog(
     let mut close = false;
     let mut do_open = false;
 
-    egui::Window::new("⚠️ Version Mismatch")
+    egui::Window::new("Version Mismatch")
         .collapsible(false)
         .resizable(false)
         .min_width(450.0)
@@ -758,7 +758,7 @@ fn draw_version_mismatch_confirm_dialog(
         .show(ctx, |ui| {
             ui.vertical(|ui| {
                 // 警告图标
-                ui.label(RichText::new("⚠️").size(48.0));
+                ui.label(RichText::new("[!]").size(48.0));
 
                 ui.add_space(12.0);
 
@@ -842,7 +842,7 @@ fn draw_delete_project_confirm_dialog(
     let mut close = false;
     let mut do_delete = false;
 
-    egui::Window::new("⚠️ Delete Project Files")
+    egui::Window::new("Delete Project Files")
         .collapsible(false)
         .resizable(false)
         .min_width(450.0)
@@ -850,7 +850,7 @@ fn draw_delete_project_confirm_dialog(
         .show(ctx, |ui| {
             ui.vertical(|ui| {
                 // 警告图标
-                ui.label(RichText::new("⚠️").size(48.0));
+                ui.label(RichText::new("[!]").size(48.0));
 
                 ui.add_space(12.0);
 
@@ -898,7 +898,7 @@ fn draw_delete_project_confirm_dialog(
                     ui.add_space(12.0);
 
                     // 删除按钮（危险样式）
-                    let delete_btn = danger_button("🗑️ Delete");
+                    let delete_btn = danger_button("Delete");
 
                     if ui.add(delete_btn).clicked() {
                         do_delete = true;

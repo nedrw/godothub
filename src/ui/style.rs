@@ -259,6 +259,9 @@ pub mod spacing {
 pub fn setup_visuals(ctx: &egui::Context, theme: Theme) {
     let colors = ThemeColors::from_theme(theme);
 
+    // Emoji 字体支持已移除（所有 emoji 已替换为纯文本符号）
+    // 使用默认字体即可
+
     let mut visuals = match theme {
         Theme::Light => egui::Visuals::light(),
         Theme::Dark => egui::Visuals::dark(),
@@ -524,7 +527,7 @@ pub fn path_label(ui: &mut egui::Ui, theme: Theme, path: &str, max_len: usize) {
     let (display_path, is_truncated) = truncate_text(path, max_len);
 
     let label = ui.label(
-        RichText::new(format!("📂 {}", display_path))
+        RichText::new(format!("{}", display_path))
             .small()
             .color(colors.text_secondary)
             .code(),

@@ -60,7 +60,7 @@ fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState, _colors: &ThemeCol
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // 保存按钮
-            let save_btn = primary_button("💾 Save Settings", state.config.theme);
+            let save_btn = primary_button("Save Settings", state.config.theme);
             let response = ui.add(save_btn).on_hover_text("Save current settings");
 
             if response.clicked() {
@@ -74,7 +74,7 @@ fn draw_panel_header(ui: &mut egui::Ui, state: &mut AppState, _colors: &ThemeCol
             ui.add_space(8.0);
 
             // 重置按钮
-            let reset_btn = danger_button("🔄 Reset");
+            let reset_btn = danger_button("Reset");
             let response = ui
                 .add(reset_btn)
                 .on_hover_text("Reset all settings to default values");
@@ -92,7 +92,7 @@ fn draw_directory_settings(ui: &mut egui::Ui, state: &mut AppState, colors: &The
     draw_settings_section(
         ui,
         state.config.theme,
-        "📂 Directories",
+        "Directories",
         "Configure installation and project directories",
         |ui| {
             // 安装目录设置
@@ -146,7 +146,7 @@ fn draw_directory_setting(
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 // 打开文件夹按钮
                 let open_btn = egui::Button::new(
-                    RichText::new("📂 Open")
+                    RichText::new("Open")
                         .size(12.0)
                         .color(colors.text_secondary),
                 )
@@ -203,7 +203,7 @@ fn draw_behavior_settings(ui: &mut egui::Ui, state: &mut AppState, colors: &Them
     draw_settings_section(
         ui,
         state.config.theme,
-        "⚙️ Behavior",
+        "Behavior",
         "Application startup and runtime behavior",
         |ui| {
             // 启动时检查更新
@@ -287,11 +287,11 @@ fn draw_theme_setting(ui: &mut egui::Ui, theme: &mut Theme, colors: &ThemeColors
         ui.add_space(12.0);
 
         ui.horizontal(|ui| {
-            theme_button(ui, "🌙 Dark", Theme::Dark, theme, colors);
+            theme_button(ui, "Dark", Theme::Dark, theme, colors);
             ui.add_space(8.0);
-            theme_button(ui, "☀️ Light", Theme::Light, theme, colors);
+            theme_button(ui, "Light", Theme::Light, theme, colors);
             ui.add_space(8.0);
-            theme_button(ui, "💻 System", Theme::System, theme, colors);
+            theme_button(ui, "System", Theme::System, theme, colors);
         });
     });
 }
@@ -349,9 +349,9 @@ fn draw_download_source_setting(
 
         // 下载源选择按钮
         ui.horizontal(|ui| {
-            source_button(ui, "🐙 GitHub", DownloadSource::GitHub, source, colors);
+            source_button(ui, "GitHub", DownloadSource::GitHub, source, colors);
             ui.add_space(8.0);
-            source_button(ui, "⚙️ Custom", DownloadSource::Custom, source, colors);
+            source_button(ui, "Custom", DownloadSource::Custom, source, colors);
         });
 
         // 如果选择自定义镜像，显示输入框
@@ -369,7 +369,7 @@ fn draw_download_source_setting(
             if custom_mirror_url.is_empty() {
                 ui.add_space(4.0);
                 ui.label(
-                    RichText::new("⚠️ Please enter a custom mirror URL")
+                    RichText::new("Please enter a custom mirror URL")
                         .size(11.0)
                         .color(colors.warning),
                 );
@@ -409,13 +409,13 @@ fn draw_about_section(ui: &mut egui::Ui, theme: Theme, colors: &ThemeColors) {
     draw_settings_section(
         ui,
         theme,
-        "ℹ️ About",
+        "About",
         "Application information",
         |ui| {
             ui.vertical(|ui| {
                 // 应用名称和版本
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("🎮").size(32.0));
+                    ui.label(RichText::new("[G]").size(32.0));
 
                     ui.add_space(12.0);
 
@@ -445,14 +445,14 @@ fn draw_about_section(ui: &mut egui::Ui, theme: Theme, colors: &ThemeColors) {
 
                 // 链接按钮
                 ui.horizontal(|ui| {
-                    let github_btn = secondary_button("🐙 GitHub", theme);
+                    let github_btn = secondary_button("GitHub", theme);
                     if ui.add(github_btn).clicked() {
                         open_url("https://github.com/gdHub/gdhub");
                     }
 
                     ui.add_space(8.0);
 
-                    let website_btn = secondary_button("🌐 Website", theme);
+                    let website_btn = secondary_button("Website", theme);
                     if ui.add(website_btn).clicked() {
                         open_url("https://github.com/gdHub/gdhub#readme");
                     }

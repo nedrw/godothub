@@ -68,9 +68,9 @@ impl Theme {
     /// 获取主题图标
     pub fn icon(&self) -> &'static str {
         match self {
-            Theme::Dark => "🌙",
-            Theme::Light => "☀️",
-            Theme::System => "💻",
+            Theme::Dark => "D",
+            Theme::Light => "L",
+            Theme::System => "S",
         }
     }
 }

@@ -61,7 +61,7 @@ fn draw_app_header(ui: &mut Ui, colors: &ThemeColors) {
         ui.add_space(16.0);
 
         // 使用 emoji 作为图标
-        ui.label(RichText::new("🎮").size(32.0));
+        ui.label(RichText::new("[G]").size(32.0));
 
         ui.add_space(8.0);
 
@@ -100,7 +100,7 @@ fn draw_navigation_section(ui: &mut Ui, state: &mut AppState, colors: &ThemeColo
     // 导航按钮
     draw_nav_button(
         ui,
-        "📦",
+        "[V]",
         "Versions",
         "Manage Godot engine installations",
         MainTab::Versions,
@@ -110,7 +110,7 @@ fn draw_navigation_section(ui: &mut Ui, state: &mut AppState, colors: &ThemeColo
 
     draw_nav_button(
         ui,
-        "📁",
+        "[P]",
         "Projects",
         "Browse and manage your projects",
         MainTab::Projects,
@@ -120,7 +120,7 @@ fn draw_navigation_section(ui: &mut Ui, state: &mut AppState, colors: &ThemeColo
 
     draw_nav_button(
         ui,
-        "⚙️",
+        "[S]",
         "Settings",
         "Configure application preferences",
         MainTab::Settings,
@@ -214,7 +214,7 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState, colors: &ThemeColors) 
             ui,
             "Installed",
             state.installed_versions.len().to_string().as_str(),
-            "📦",
+            "[V]",
             colors.accent_blue,
             colors,
         );
@@ -235,7 +235,7 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState, colors: &ThemeColors) 
             ui,
             "Available",
             available_count.to_string().as_str(),
-            "🌐",
+            "[A]",
             colors.badge_green,
             colors,
         );
@@ -258,7 +258,7 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState, colors: &ThemeColors) 
                 ui,
                 "Downloading",
                 downloading_count.to_string().as_str(),
-                "⬇️",
+                "[D]",
                 colors.badge_orange,
                 colors,
             );
@@ -280,7 +280,7 @@ fn draw_statistics_section(ui: &mut Ui, state: &AppState, colors: &ThemeColors) 
                 ui,
                 "Favorites",
                 favorite_count.to_string().as_str(),
-                "⭐",
+                "★",
                 colors.warning,
                 colors,
             );
@@ -344,7 +344,7 @@ fn draw_download_button(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors)
 
         // 主下载按钮
         let download_btn = egui::Button::new(
-            RichText::new("⬇️  Download New Version")
+            RichText::new("Download New Version")
                 .size(13.0)
                 .strong()
                 .color(egui::Color32::WHITE),
