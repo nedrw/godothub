@@ -1011,6 +1011,17 @@ fn execute_create_project(state: &mut AppState) {
         return;
     }
 
+    // 创建默认主场景文件
+    let scene_content = generate_main_scene_template(&godot_version);
+    if let Err(e) = std::fs::write(project_path.join("main.tscn"), &scene_content) {
+        let _ = std::fs::remove_dir_all(&project_path);
+        if let Some(d) = state.new_project_dialog.as_mut() {
+            d.creating = false;
+            d.error = Some(format!("Failed to write main.tscn: {}", e));
+        }
+        return;
+    }
+
     log::info!(
         "Created Godot {} project '{}' at: {}",
         godot_version,
@@ -1040,6 +1051,7 @@ fn generate_project_godot_template(project_name: &str, godot_version: &str) -> S
              [application]\n\
              \n\
              config/name=\"{name}\"\n\
+             run/main_scene=\"res://main.tscn\"\n\
              config/features=PackedStringArray(\"{ver}\", \"Forward Plus\")\n",
             name = project_name,
             ver = godot_version,
@@ -1054,9 +1066,27 @@ fn generate_project_godot_template(project_name: &str, godot_version: &str) -> S
              \n\
              [application]\n\
              \n\
-             config/name=\"{name}\"\n",
+             config/name=\"{name}\"\n\
+             run/main_scene=\"res://main.tscn\"\n",
             name = project_name,
         )
+    }
+}
+
+/// 生成默认主场景文件内容
+fn generate_main_scene_template(godot_version: &str) -> String {
+    let major = godot_version
+        .split('.')
+        .next()
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(4);
+
+    if major >= 4 {
+        // Godot 4.x format
+        "[gd_scene load_steps=1 format=3 uid=\"uid://cqxjm8h3wx7pm\"]\n\n[node name=\"Main\" type=\"Node\"]\n".to_string()
+    } else {
+        // Godot 3.x format
+        "[gd_scene load_steps=1 format=2]\n\n[node name=\"Main\" type=\"Node\"]\n".to_string()
     }
 }
 
