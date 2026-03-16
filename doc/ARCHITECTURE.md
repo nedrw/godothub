@@ -416,7 +416,7 @@ AppState::remove_installed_version(index)
 
 | 接口 | 位置 | 问题描述 |
 |------|------|---------|
-| `Theme::System` | `ThemeColors::from_theme()` | ✅ **已实现**：新增 `pub fn detect_system_dark_mode() -> bool`，通过 `std::sync::OnceLock` 缓存，进程内仅检测一次。macOS 调用 `defaults read -g AppleInterfaceStyle`，Windows 读取注册表 `AppsUseLightTheme`，Linux 调用 `gsettings`。`ThemeColors::from_theme` 和 `setup_visuals` 均已接入。 |
+| `Theme::System` | `ThemeColors::from_theme()` | ✅ **已实现（动态轮询）**：新增 `pub fn detect_system_dark_mode() -> bool`，采用**定时轮询**策略：缓存层由两个静态原子变量构成——`CACHED: AtomicBool`（深色标志）+ `LAST_CHECK: AtomicU64`（上次检测时间戳），读写均使用 `Relaxed` 序，无锁线程安全；轮询间隔由常量 `DARK_MODE_POLL_INTERVAL_SECS = 30` 控制，`LAST_CHECK` 初始值为 0，保证首次调用必触发实际检测。检测方式：macOS 调用 `defaults read -g AppleInterfaceStyle`，Windows 读取注册表 `AppsUseLightTheme`（需 `winreg` crate），Linux 调用 `gsettings get org.gnome.desktop.interface color-scheme`。`ThemeColors::from_theme` 和 `setup_visuals` 均已接入；由于 `update()` 每 100 ms 重绘，系统主题切换后最多 30 秒内自动生效。 |
 | `pub mod colors {}` | `style.rs` | ✅ **已删除**（上一轮 warning 清零时移除） |
 
 ### 10.5 工具模块（utils/region.rs）

@@ -95,12 +95,16 @@
 ### 功能完善
 
 - [x] **`Theme::System` 系统主题检测** ✅ 已实现（`ui/style.rs`）  
-  新增 `pub fn detect_system_dark_mode() -> bool`，通过 `std::sync::OnceLock` 缓存，  
-  进程生命周期内仅执行一次系统调用：  
-  - macOS：`defaults read -g AppleInterfaceStyle`（输出 "Dark" 则为深色）  
-  - Windows：读取注册表 `AppsUseLightTheme`（0 = 深色，需 `winreg` crate）  
-  - Linux：`gsettings get org.gnome.desktop.interface color-scheme`（含 "dark" 则为深色）  
-  `ThemeColors::from_theme(Theme::System)` 和 `setup_visuals()` 均已接入该函数。
+  新增 `pub fn detect_system_dark_mode() -> bool`，采用**定时轮询**策略动态响应系统主题切换：  
+  - 缓存层：两个静态原子变量 `CACHED: AtomicBool`（深色标志）+  
+    `LAST_CHECK: AtomicU64`（上次检测时间戳），读写均用 `Relaxed` 序，无锁线程安全  
+  - 轮询间隔：`DARK_MODE_POLL_INTERVAL_SECS = 30` 秒；初始值 `LAST_CHECK = 0`  
+    保证首次调用必触发检测  
+  - 检测方式：macOS 调用 `defaults read -g AppleInterfaceStyle`，  
+    Windows 读取注册表 `AppsUseLightTheme`（需 `winreg` crate），  
+    Linux 调用 `gsettings get org.gnome.desktop.interface color-scheme`  
+  - `ThemeColors::from_theme(Theme::System)` 和 `setup_visuals()` 均已接入该函数；  
+    由于 `update()` 每 100 ms 重绘一次，每隔 30 秒会自动触发一次实际系统调用
 
 - [x] **下载对话框搜索/筛选功能** ✅ 已在 P0 阶段完成（版本号 + 变体名称实时过滤）
 
@@ -131,7 +135,7 @@
 | 自定义镜像 | ✅ 可用 | 用户填写 URL，自动代理 API 和下载 |
 | 下载队列计数 | ✅ 已修复 | 过滤特殊 key，数量显示正确；Cancel All 逻辑修正 |
 | 搜索栏 | ✅ 已修复 | 输入持久化 + 版本号/变体名称实时过滤均已实现；Filter 按钮下拉筛选待实现（P2） |
-| 主题切换 | ✅ 完整 | Dark/Light/System 均已实现；System 通过 `detect_system_dark_mode()` + `OnceLock` 缓存检测 |
+| 主题切换 | ✅ 完整 | Dark/Light/System 均已实现；System 通过 `detect_system_dark_mode()` 每 30 秒轮询，动态响应系统主题切换 |
 | 项目管理 | 🔴 占位 | 扫描可用，其余操作均为 TODO |
 | 收藏/使用时间 | 🔴 缺失 | 内存状态，重启丢失 |
 | 更新检查 | 🔴 缺失 | 配置开关存在，逻辑未实现 |

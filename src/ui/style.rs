@@ -1,7 +1,7 @@
 // Style - 统一样式模块
 // 包含所有颜色常量、样式配置和可复用的 UI 组件
 
-use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use crate::state::Theme;
 use egui::{Color32, RichText, Stroke, Vec2};
@@ -10,9 +10,14 @@ use egui::{Color32, RichText, Stroke, Vec2};
 // 系统主题检测
 // ============================================================================
 
+/// 系统深色模式轮询间隔（秒）。每次调用 [`detect_system_dark_mode`] 时，
+/// 若距上次实际检测已超过此间隔，则重新执行系统调用并更新缓存。
+pub const DARK_MODE_POLL_INTERVAL_SECS: u64 = 30;
+
 /// 检测操作系统当前是否使用深色模式。
 ///
-/// 结果通过 [`OnceLock`] 缓存，进程生命周期内仅执行一次实际检测。
+/// 结果缓存在静态原子变量中，每隔 [`DARK_MODE_POLL_INTERVAL_SECS`] 秒重新轮询一次，
+/// 可在运行期间动态响应系统主题切换。读写均使用 `Relaxed` 序，线程安全无锁。
 ///
 /// | 平台    | 检测方式                                              |
 /// |---------|------------------------------------------------------|
@@ -20,8 +25,25 @@ use egui::{Color32, RichText, Stroke, Vec2};
 /// | Windows | 注册表 `AppsUseLightTheme`（0 = 深色，1 = 浅色）      |
 /// | Linux   | `gsettings get org.gnome.desktop.interface color-scheme` |
 pub fn detect_system_dark_mode() -> bool {
-    static SYSTEM_IS_DARK: OnceLock<bool> = OnceLock::new();
-    *SYSTEM_IS_DARK.get_or_init(detect_system_dark_mode_inner)
+    // 缓存的深色模式标志，初始值 false（浅色），首次调用时立即修正
+    static CACHED: AtomicBool = AtomicBool::new(false);
+    // 上次实际检测的 Unix 时间戳（秒），初始值 0 保证首次调用必触发检测
+    static LAST_CHECK: AtomicU64 = AtomicU64::new(0);
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    let last = LAST_CHECK.load(Ordering::Relaxed);
+    if now.saturating_sub(last) >= DARK_MODE_POLL_INTERVAL_SECS {
+        let is_dark = detect_system_dark_mode_inner();
+        CACHED.store(is_dark, Ordering::Relaxed);
+        LAST_CHECK.store(now, Ordering::Relaxed);
+        is_dark
+    } else {
+        CACHED.load(Ordering::Relaxed)
+    }
 }
 
 fn detect_system_dark_mode_inner() -> bool {
