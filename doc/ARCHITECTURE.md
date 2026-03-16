@@ -2,723 +2,478 @@
 
 ## 1. 项目概述
 
-Godot Hub 是一个使用 Rust + eframe/egui 构建的跨平台 Godot 引擎管理应用，类似于 GodotHub，允许用户管理多个 Godot 版本、安装、运行和下载不同的 Godot 变体。
+Godot Hub 是一个用 Rust 编写的跨平台 Godot 引擎管理器。它通过桌面 GUI 帮助开发者管理多个 Godot 引擎版本、浏览本地 Godot 项目，并提供版本下载和启动功能。
 
 ### 核心功能
 
-- **版本管理**: 安装、删除、运行多个 Godot 版本
-- **变体支持**: Standard、Mono、Export Templates
-- **版本下载**: 从 GitHub 官方仓库下载 Godot
-- **项目管理**: 项目目录管理和扫描
-- **配置管理**: 自定义安装目录、项目目录等
+- 从 GitHub Releases API 获取并展示可用的 Godot 引擎版本
+- 下载、安装和删除 Godot 引擎版本（含 Standard / Mono 两种变体）
+- 实时下载进度显示、取消和失败重试
+- 扫描本地项目目录，展示 Godot 项目列表
+- 可配置的下载源（GitHub 官方 / 自定义镜像）
+- 深色 / 浅色主题切换
 
-### 项目特点
+### 当前版本
 
-- **现代化 UI**: 采用卡片式设计，清晰的信息层次
-- **跨平台**: 支持 Windows、macOS、Linux
-- **异步处理**: 使用 tokio 进行异步操作
-- **类型安全**: Rust 的类型系统保证代码质量
+`v0.1.0`（功能可用，部分模块仍有占位实现，见第 10 节）
+
+---
 
 ## 2. 技术栈
 
-| 组件 | 技术 | 版本 | 用途 |
-|------|------|------|------|
-| UI 框架 | eframe + egui | 0.31 | 即时模式 GUI |
-| 异步运行时 | tokio | 1.x | 异步任务处理 |
-| HTTP 客户端 | reqwest | 0.12 | HTTP 请求和下载 |
-| 序列化 | serde + serde_json | 1.0 | 数据序列化 |
-| 文件处理 | zip | 2.0 | ZIP 文件解压 |
-| 错误处理 | thiserror, anyhow | 2.0, 1.0 | 错误处理 |
-| 日期时间 | chrono | 0.4 | 时间处理 |
-| 日志 | log, env_logger | 0.4, 0.11 | 日志记录 |
+| 依赖 | 版本 | 用途 |
+|------|------|------|
+| `eframe` | 0.31 | 跨平台原生窗口框架 |
+| `egui` | 0.31 | 即时模式 GUI 渲染 |
+| `tokio` | 1 (full) | 异步运行时 |
+| `reqwest` | 0.12 | HTTP 客户端（流式下载、JSON） |
+| `serde` / `serde_json` | 1.0 | 序列化（配置持久化） |
+| `zip` | 2.0 | ZIP 解压 |
+| `dirs` | 6.0 | 跨平台目录路径获取 |
+| `rfd` | 0.15 | 原生文件选择对话框 |
+| `chrono` | 0.4 | 时间处理 |
+| `anyhow` / `thiserror` | 1.0 / 2.0 | 错误处理 |
+| `futures` | 0.3 | 异步流工具 |
+| `log` / `env_logger` | 0.4 / 0.11 | 日志系统 |
+| `winreg` (Windows only) | 0.55 | Windows 注册表（平台相关） |
 
-## 3. 模块架构
+---
 
-重构后的代码按功能划分为以下模块：
+## 3. 目录结构
 
 ```
 src/
-├── main.rs                 # 应用程序入口点
-├── models/                 # 数据模型层
-│   ├── mod.rs
-│   ├── godot_version.rs   # GodotVersion, 版本信息模型
-│   ├── godot_variant.rs   # GodotVariant, 变体枚举
-│   └── godot_install.rs   # GodotInstall, 已安装版本模型
-├── state/                 # 应用状态层
-│   ├── mod.rs
-│   ├── app_config.rs      # AppConfig, 配置模型
-│   ├── app_state.rs       # AppState, 应用状态
-│   └── app_state_impl.rs # AppState 实现方法
-├── ui/                    # UI 表现层
-│   ├── mod.rs
-│   ├── sidebar.rs         # 侧边栏组件（已优化）
-│   ├── versions_panel.rs # 版本管理面板（已优化）
-│   ├── projects_panel.rs # 项目管理面板（已优化）
-│   ├── settings_panel.rs # 设置面板（已优化）
-│   └── download_dialog.rs # 下载对话框（已优化）
-├── services/              # 业务逻辑层
-│   ├── mod.rs
-│   ├── download.rs       # 下载服务
-│   └── launcher.rs       # 启动器服务
-└── utils/                 # 工具函数层
-    ├── mod.rs
-    └── file_utils.rs     # 文件操作工具
+├── main.rs              # 入口点、GodotHubApp、eframe App 实现
+├── models/              # 数据模型
+│   ├── godot_variant.rs # GodotVariant 枚举
+│   ├── godot_version.rs # GodotVersion 结构体（可用版本）
+│   ├── godot_install.rs # GodotInstall 结构体（已安装版本）
+│   └── mod.rs
+├── state/               # 应用状态管理
+│   ├── app_config.rs    # AppConfig、Theme、DownloadSource
+│   ├── app_state.rs     # AppState 结构体定义
+│   ├── app_state_impl.rs# AppState 方法实现
+│   └── mod.rs
+├── services/            # 业务逻辑服务
+│   ├── github_api.rs    # GitHub API 客户端，版本解析
+│   ├── download.rs      # 文件下载、ZIP 解压、取消机制
+│   ├── launcher.rs      # Godot 进程启动（跨平台）
+│   └── mod.rs
+├── ui/                  # 用户界面组件
+│   ├── style.rs         # 主题颜色系统、通用 UI 组件
+│   ├── sidebar.rs       # 侧边栏（导航 + 统计）
+│   ├── versions_panel.rs# 版本管理面板
+│   ├── projects_panel.rs# 项目管理面板
+│   ├── settings_panel.rs# 设置面板
+│   ├── download_dialog.rs# 下载对话框
+│   └── mod.rs
+└── utils/               # 工具函数
+    ├── file_utils.rs    # 文件路径、大小格式化等工具
+    ├── region.rs        # 系统地区/时区检测
+    └── mod.rs
 ```
 
-### 模块职责
-
-#### Models 层
-- 定义数据结构和业务对象
-- 实现数据验证和转换
-- 提供数据序列化/反序列化
-
-#### State 层
-- 管理应用全局状态
-- 处理状态持久化
-- 提供状态访问和修改接口
-
-#### UI 层
-- 实现用户界面组件
-- 处理用户交互
-- 展示数据状态
-
-#### Services 层
-- 实现核心业务逻辑
-- 处理外部资源访问
-- 提供异步操作支持
-
-#### Utils 层
-- 提供通用工具函数
-- 封装平台相关操作
-- 提供辅助功能
+---
 
 ## 4. 数据模型
 
 ### 4.1 GodotVariant
 
-表示 Godot 的不同版本类型：
-
 ```rust
 pub enum GodotVariant {
-    Standard,        // 标准版
-    Mono,           // Mono 版本（支持 C#）
-    ExportTemplates, // 导出模板
+    Standard,         // 标准版（不含 Mono）
+    Mono,             // 含 C# 支持的版本
+    ExportTemplates,  // 导出模板（当前未通过下载流程处理）
 }
 ```
 
 ### 4.2 GodotVersion
 
-表示一个可用的 Godot 版本信息：
+表示从 GitHub 获取的可用版本（尚未安装）。
 
 ```rust
 pub struct GodotVersion {
-    pub version: String,         // 版本号 (如 "4.3")
-    pub variant: GodotVariant,   // 变体类型
-    pub platform: String,        // 平台 (如 "Linux64")
-    pub download_url: String,    // 下载链接
-    pub release_date: String,    // 发布日期
-    pub is_installed: bool,     // 是否已安装
-    pub install_path: Option<PathBuf>, // 安装路径
+    pub version: String,             // "4.3"、"4.2.2" 等
+    pub variant: GodotVariant,
+    pub platform: String,            // "Linux64"、"macOS (ARM)" 等
+    pub download_url: String,        // 下载直链（可能经镜像转换）
+    pub release_date: String,        // "YYYY-MM-DD"
+    pub is_installed: bool,
+    pub install_path: Option<PathBuf>,
 }
 ```
 
 ### 4.3 GodotInstall
 
-表示已安装的 Godot 实例：
+表示已安装到本地的 Godot 实例。
 
 ```rust
 pub struct GodotInstall {
-    pub version: String,                    // 版本号
-    pub variant: GodotVariant,               // 变体类型
-    pub path: PathBuf,                       // 可执行文件路径
-    pub is_favorite: bool,                  // 是否收藏
-    pub last_used: Option<DateTime<Utc>>,   // 最后使用时间
+    pub version: String,
+    pub variant: GodotVariant,
+    pub path: PathBuf,              // 可执行文件路径
+    pub is_favorite: bool,
+    pub last_used: Option<DateTime<Utc>>,
 }
 ```
+
+> **注意**：`is_favorite` 和 `last_used` 字段目前**不持久化**。
+> 应用每次启动时通过扫描安装目录重新构建 `GodotInstall` 列表，
+> 这些字段会被重置为默认值。
 
 ### 4.4 AppConfig
 
-应用配置：
-
 ```rust
 pub struct AppConfig {
-    pub install_dir: PathBuf,           // 安装目录
-    pub projects_dir: PathBuf,          // 项目目录
-    pub check_updates_on_start: bool,   // 启动时检查更新
+    pub install_dir: PathBuf,           // Godot 版本安装目录，默认 ~/.gdhub/versions
+    pub projects_dir: PathBuf,          // 项目扫描目录，默认 ~/Godot
+    pub check_updates_on_start: bool,   // 启动时检查更新（UI 开关，无实际逻辑）
+    pub theme: Theme,                   // Dark | Light | System
+    pub download_source: DownloadSource,// GitHub | Custom
+    pub custom_mirror_url: String,      // 自定义镜像 URL（仅 Custom 模式有效）
 }
 ```
 
-### 4.5 AppState
+配置文件路径（JSON 格式）：
+- macOS / Linux：`~/.config/gdhub/config.json`
+- Windows：`%APPDATA%\gdhub\config.json`
 
-全局应用状态：
+### 4.5 DownloadSource
+
+```rust
+pub enum DownloadSource {
+    GitHub,  // 直连 GitHub 官方 API 和下载地址
+    Custom,  // 通过用户填写的镜像 URL 代理请求
+}
+```
+
+Custom 模式下：
+- API 请求格式：`{custom_mirror_url}/https://api.github.com{path}`
+- 文件下载格式：`{custom_mirror_url}/{original_github_url_without_https://}`
+
+### 4.6 AppState
 
 ```rust
 pub struct AppState {
-    pub installed_versions: Vec<GodotInstall>,      // 已安装版本
-    pub available_versions: Vec<GodotVersion>,      // 可用版本
-    pub downloads_in_progress: HashMap<String, f32>,// 下载进度
-    pub selected_version_index: Option<usize>,      // 选中版本索引
-    pub show_download_dialog: bool,                 // 显示下载对话框
-    pub current_tab: MainTab,                       // 当前标签页
-    pub config: AppConfig,                          // 应用配置
+    pub installed_versions: Vec<GodotInstall>,
+    pub available_versions: Vec<GodotVersion>,
+    pub downloads_in_progress: HashMap<String, f32>, // 版本 key -> 进度/状态值
+    pub selected_version_index: Option<usize>,
+    pub show_download_dialog: bool,
+    pub current_tab: MainTab,
+    pub config: AppConfig,
+    // 以下字段不序列化
+    pub runtime: Option<Arc<Runtime>>,
+    pub version_refresh_state: VersionRefreshState,
+    pub refresh_receiver: Option<mpsc::Receiver<RefreshResult>>,
+    pub shared_state: Option<Arc<Mutex<AppState>>>, // 供异步任务写入进度
+    pub delete_confirm: Option<DeleteConfirmState>,
+    pub cancellation_tokens: HashMap<String, Arc<AtomicBool>>,
 }
 ```
 
-## 5. UI 结构
+---
 
-### 5.1 整体布局
+## 5. 下载状态系统
 
-应用采用侧边栏 + 中央面板的布局：
+`downloads_in_progress` HashMap 使用特殊的 key/value 约定来表达多种状态，
+由 `services::download_state` 模块统一管理。
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Godot Hub - v0.1.0                        [─][□][×]  │
-├────────────────┬────────────────────────────────────────┤
-│                │                                        │
-│  🎮 Godot Hub  │     [面板标题 + 描述 + 操作按钮]      │
-│  Engine Mgr    │                                        │
-│                │     ┌──────────────────────────────┐  │
-│  ───────────── │     │                              │  │
-│                │     │     主内容区域               │  │
-│  NAVIGATION    │     │     (卡片式布局)             │  │
-│  📦 Versions   │     │                              │  │
-│  📁 Projects   │     │     - 版本卡片               │  │
-│  ⚙️ Settings   │     │     - 项目卡片               │  │
-│                │     │     - 设置分组               │  │
-│  ───────────── │     │                              │  │
-│                │     └──────────────────────────────┘  │
-│  STATISTICS    │                                        │
-│  ┌──────────┐ │                                        │
-│  │📦 3      │ │                                        │
-│  │Installed │ │                                        │
-│  └──────────┘ │                                        │
-│                │                                        │
-│  ┌──────────┐ │                                        │
-│  │⬇️ 1      │ │                                        │
-│  │Download  │ │                                        │
-│  └──────────┘ │                                        │
-│                │                                        │
-│  [⬇️ Download]│                                        │
-│                │                                        │
-└────────────────┴────────────────────────────────────────┘
-```
+### Key 命名规则
 
-### 5.2 侧边栏组件 (Sidebar)
+| Key 格式 | 示例 | 含义 |
+|---------|------|------|
+| `{version}` | `4.3` | 正常下载中（值为 0.0~1.0 进度） |
+| `{version}-mono` | `4.3-mono` | Mono 版本正常下载中 |
+| `{version}_error` | `4.3_error` | 下载失败（值为 -1.0） |
+| `{version}_extracting` | `4.3_extracting` | 正在解压（值为 -2.0） |
+| `{version}_complete` | `4.3_complete` | 安装完成（值为 -3.0，短暂存在后被清除） |
 
-**功能特点：**
-- 应用标题和版本信息
-- 导航按钮（带图标和状态反馈）
-- 统计信息卡片
-- 底部固定下载按钮
-
-**设计规范：**
-- 宽度范围：200-300px
-- 默认宽度：220px
-- 使用 emoji 图标增强可识别性
-- 选中状态使用蓝色高亮
-
-### 5.3 版本管理面板 (Versions Panel)
-
-**功能特点：**
-- 已安装版本展示（卡片式布局）
-- 可用版本分组显示（按主版本号）
-- 状态标签（Standard/Mono/Installed）
-- 下载进度条显示
-- 操作菜单（运行/打开文件夹/删除）
-
-**设计规范：**
-- 卡片内边距：12px
-- 卡片圆角：8px
-- 操作按钮最小尺寸：64x28px
-- 进度条宽度：120px
-
-### 5.4 项目管理面板 (Projects Panel)
-
-**功能特点：**
-- 项目扫描和展示
-- 项目有效性检测
-- 快捷操作（打开/打开文件夹）
-- 空状态友好提示
-
-**设计规范：**
-- 项目卡片显示路径、版本、最后打开时间
-- 无效项目使用红色标签标识
-- 收藏项目使用星标显示
-
-### 5.5 设置面板 (Settings Panel)
-
-**功能特点：**
-- 目录配置（安装目录、项目目录）
-- 行为设置（启动检查、自动启动）
-- 主题选择（占位）
-- 关于信息
-
-**设计规范：**
-- 使用卡片分组
-- 每个设置项包含标题、说明、控件
-- 提供重置默认选项
-
-### 5.6 下载对话框 (Download Dialog)
-
-**功能特点：**
-- 版本分组显示（Godot 4.x / 3.x）
-- 搜索和筛选功能（占位）
-- 下载队列状态显示
-- 实时进度更新
-
-**设计规范：**
-- 默认尺寸：650x550px
-- 最小宽度：550px
-- 模态居中显示
-
-## 6. UI 设计规范
-
-### 6.1 颜色系统
-
-```rust
-// 语义颜色
-Primary:    Color32::from_rgb(70, 130, 180)   // 主要操作
-Success:    Color32::from_rgb(46, 139, 87)    // 成功状态
-Warning:    Color32::from_rgb(255, 165, 0)    // 警告状态
-Error:      Color32::from_rgb(220, 53, 69)    // 错误状态
-Info:       Color32::from_rgb(70, 130, 180)   // 信息提示
-
-// 变体标签颜色
-Standard:   Color32::from_rgb(76, 175, 80)    // 标准版
-Mono:       Color32::from_rgb(156, 39, 176)   // Mono 版
-Export:     Color32::from_rgb(255, 152, 0)    // 导出模板
-```
-
-### 6.2 字体规范
-
-```rust
-// 标题
-Heading 1: 20px, bold    // 应用标题
-Heading 2: 18px, bold    // 面板标题
-Heading 3: 16px, bold    // 区域标题
-
-// 正文
-Body:      14px, normal // 正文内容
-Small:     12px, normal // 辅助信息
-Tiny:      10px, normal // 标签、提示
-
-// 特殊样式
-Strong:    加粗文本
-Weak:      弱化文本
-Code:      代码样式（路径）
-```
-
-### 6.3 间距规范
-
-```rust
-xs:  4px  // 元素内部间距
-sm:  8px  // 紧凑元素间距
-md:  16px // 标准元素间距
-lg:  24px // 区域间距
-xl:  32px // 大块区域间距
-```
-
-### 6.4 组件规范
-
-**卡片组件：**
-```rust
-Frame::group(ui.style())
-    .inner_margin(12.0)
-    .outer_margin(0.0)
-    .rounding(8.0)
-    .stroke(Stroke::new(1.0, border_color))
-    .show(ui, |ui| {
-        // 卡片内容
-    });
-```
-
-**按钮组件：**
-```rust
-// 主要按钮
-Button::new("Text")
-    .fill(Color32::from_rgb(70, 130, 180))
-    .min_size(Vec2::new(120.0, 32.0))
-
-// 次要按钮
-Button::new("Text")
-    .fill(Color32::TRANSPARENT)
-
-// 危险按钮
-Button::new("Delete")
-    .fill(Color32::from_rgb(220, 53, 69))
-```
-
-**进度条组件：**
-```rust
-ProgressBar::new(progress)
-    .desired_width(120.0)
-    .text(format!("{:.0}%", progress * 100.0))
-    .animate(true)
-```
-
-## 7. 业务流程
-
-### 7.1 启动流程
+### 状态流转
 
 ```
-1. 初始化日志系统
-   ↓
-2. 创建 GodotHubApp 实例
-   ↓
-3. 加载 AppConfig（或使用默认值）
-   ↓
-4. 扫描已安装版本目录
-   ↓
-5. 加载可用版本列表（模拟数据）
-   ↓
-6. 启动 eframe 渲染循环
-   ↓
-7. 首次渲染 UI
+初始化 (0.0)
+    ↓ 下载中 (0.0 → 1.0)
+    ↓ 解压中 (_extracting = -2.0)
+    ↓ 完成 (_complete = -3.0)  → 由 sync_download_progress 清除
+    ↓ 已安装（从 available_versions 中反映）
+
+    ← 失败 (_error = -1.0)  → 用户可 Retry 或 Remove
+    ← 取消（所有相关 key 被清除）
 ```
 
-### 7.2 版本下载流程
+---
+
+## 6. 异步架构
+
+### 线程模型
+
+UI 线程运行在主线程（eframe 要求），下载/API 请求在 Tokio 运行时的工作线程上执行。
+
+### 进度同步机制
+
+1. `AppState::shared_state` 是一个 `Arc<Mutex<AppState>>` 的克隆副本（不含 runtime），专门用于异步任务写入进度。
+2. 每帧调用 `AppState::sync_download_progress()`，将 `shared_state` 中的进度合并到主状态。
+3. 版本列表刷新使用标准库 `mpsc::channel`，结果通过 `AppState::poll_refresh_result()` 每帧轮询。
+
+### 取消机制
+
+每次下载时创建一个 `Arc<AtomicBool>` 取消令牌，存储在 `cancellation_tokens` 中。
+调用 `cancel_download()` 时将该标志设为 `true`，下载和解压过程中定期检查并提前返回。
+
+---
+
+## 7. UI 结构
+
+### 整体布局
 
 ```
-用户点击下载按钮
-   ↓
-检查版本是否已下载
-   ↓
-创建下载任务
-   ↓
-更新 downloads_in_progress
-   ↓
-启动异步下载
-   ↓
-更新下载进度
-   ↓
-下载完成，解压文件
-   ↓
-更新安装列表
-   ↓
-清理下载状态
+┌─────────────────────────────────────────────────┐
+│  SidePanel::left("sidebar")                     │
+│  ┌──────────────┐  ┌────────────────────────┐   │
+│  │   Sidebar    │  │   CentralPanel         │   │
+│  │  - 导航按钮  │  │   - Versions Panel     │   │
+│  │  - 统计信息  │  │   - Projects Panel     │   │
+│  │  - 下载按钮  │  │   - Settings Panel     │   │
+│  └──────────────┘  │   [Download Dialog]    │   │
+│                    └────────────────────────┘   │
+└─────────────────────────────────────────────────┘
 ```
 
-### 7.3 版本启动流程
+初始窗口尺寸：1000×700，最小 800×500。
+
+### 主题系统
+
+`ui/style.rs` 提供两套颜色方案（`dark_colors` / `light_colors`），通过 `ThemeColors::from_theme()` 按当前主题选取。`Theme::System` 目前回退为深色主题（系统主题检测未实现）。
+
+每帧通过 `ui::setup_visuals(ctx, theme)` 应用到 egui 全局样式。
+
+### 可复用组件（style.rs）
+
+| 函数 | 说明 |
+|------|------|
+| `badge()` | 带背景色的小标签 |
+| `status_pill()` | 圆角胶囊状态标签 |
+| `card_frame()` | 卡片容器 Frame |
+| `primary_button()` | 主要操作按钮 |
+| `secondary_button()` | 次要操作按钮 |
+| `danger_button()` | 危险操作按钮（红色） |
+| `success_button()` | 成功/运行按钮（绿色） |
+| `empty_state()` | 空状态提示组件 |
+| `section_header()` | 带图标的区域标题 |
+| `panel_header()` | 面板页眉 |
+| `path_label()` | 带省略和悬停提示的路径显示 |
+
+---
+
+## 8. 业务流程
+
+### 8.1 启动流程
 
 ```
-用户点击运行按钮
-   ↓
-验证可执行文件存在
-   ↓
-根据平台选择启动方式
-   ├─ Windows: cmd /C start "" <path>
-   ├─ Linux: 直接执行
-   └─ macOS: open <path>
-   ↓
-记录最后使用时间
-   ↓
-更新 UI 状态
+main()
+  ├─ env_logger 初始化
+  ├─ GodotHubApp::default()
+  │    ├─ AppState::default()
+  │    │    └─ AppConfig::load()（读取配置文件）
+  │    ├─ Tokio Runtime 创建
+  │    ├─ AppState::load_installed_versions()（扫描安装目录）
+  │    ├─ AppState::create_shared_state()（创建异步共享状态）
+  │    └─ AppState::refresh_available_versions()（异步拉取 GitHub 版本列表）
+  └─ eframe::run_native() 进入事件循环
 ```
 
-## 8. 错误处理
+### 8.2 版本下载流程
 
-### 8.1 错误类型
+```
+用户点击 "Download"
+  ↓
+services::start_download(version, state, runtime)
+  ├─ downloads_in_progress 插入初始进度 0.0
+  ├─ 创建 CancellationToken
+  └─ runtime.spawn(async)
+       ├─ download_and_install()
+       │    ├─ 创建临时目录和安装目录
+       │    ├─ download_file_with_fallback()（流式下载，每块更新进度）
+       │    ├─ validate_zip_file()（验证 ZIP 完整性）
+       │    ├─ extract_zip()（解压，支持取消检查）
+       │    ├─ 删除临时 ZIP 文件
+       │    └─ find_executable()（查找解压后的可执行文件）
+       └─ 写入 shared_state：
+            成功 → 插入 _extracting → 等待 500ms → 插入 _complete，添加到 installed_versions
+            失败 → 插入 _error
 
-使用 `thiserror` 定义具体错误：
-
-```rust
-#[derive(Debug, thiserror::Error)]
-pub enum GodotHubError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    
-    #[error("Network error: {0}")]
-    Network(String),
-    
-    #[error("Config error: {0}")]
-    Config(String),
-}
+每帧：sync_download_progress() 合并 shared_state 到主状态
 ```
 
-### 8.2 错误处理策略
+### 8.3 版本启动流程
 
-1. **用户级错误**: 显示友好的错误提示
-2. **系统级错误**: 记录日志并尝试恢复
-3. **网络错误**: 提供重试机制
+```
+用户点击 "Run"
+  ↓
+services::launch_godot(&install.path)
+  ├─ 检查可执行文件是否存在
+  └─ 平台分支：
+       Windows → cmd /C start "" {path}
+       Linux   → Command::new(path).spawn()
+       macOS   → open {path}
+```
+
+### 8.4 版本列表刷新
+
+```
+AppState::refresh_available_versions()
+  ├─ 创建 mpsc::channel
+  ├─ runtime.spawn(fetch_all_versions_with_source_and_custom())
+  │    ├─ GitHubApi::fetch_releases()（GET /repos/godotengine/godot/releases?per_page=50）
+  │    │    └─ 若镜像失败自动回退到官方 GitHub API
+  │    └─ 对每个 release 解析 Standard + Mono 版本，按版本号降序排列
+  └─ 结果通过 channel 发送
+
+每帧：poll_refresh_result() → handle_refresh_result() → update_install_status()
+```
+
+### 8.5 版本删除流程
+
+```
+用户点击 "Remove"
+  ↓
+state.delete_confirm = Some(DeleteConfirmState { version_index, version_info })
+  ↓ (用户点击确认)
+AppState::remove_installed_version(index)
+  ├─ 从 installed_versions 中移除记录
+  ├─ std::fs::remove_dir_all(install_path.parent())（同步删除文件）
+  └─ 更新 available_versions 中对应版本的 is_installed 为 false
+```
+
+---
 
 ## 9. 配置持久化
 
-### 9.1 配置文件位置
+### 持久化范围
 
-- **配置目录**: `{config_dir}/gdhub/config.json`
-- **Linux**: `~/.config/gdhub/config.json`
-- **macOS**: `~/Library/Application Support/gdhub/config.json`
-- **Windows**: `%APPDATA%/gdhub/config.json`
+| 数据 | 是否持久化 | 方式 |
+|------|-----------|------|
+| `AppConfig`（目录、主题、下载源等） | ✅ 是 | JSON 文件 |
+| `installed_versions` | ❌ 否 | 每次启动扫描目录重建 |
+| `is_favorite`、`last_used` | ❌ 否 | 内存状态，重启丢失 |
+| egui 窗口位置/大小 | ✅ 是 | eframe 内置存储 |
 
-### 9.2 配置示例
+### 配置文件示例
 
-```json
-{
-  "install_dir": "/home/user/.gdhub/versions",
-  "projects_dir": "/home/user/Godot",
-  "check_updates_on_start": true
-}
-```
-
-## 10. 最近更新
-
-### v0.1.5 (2025-03-03) - 下载取消功能修复
-
-#### 问题修复
-- ✅ **修复下载时点击取消按钮无效的问题**：之前点击取消只是从 UI 状态中移除进度记录，但后台的异步下载任务仍在继续运行
-  - 新增 `cancellation_tokens: HashMap<String, Arc<AtomicBool>>` 到 `AppState`，用于管理每个下载任务的取消标志
-  - 在 `download_file` 函数的流式下载循环中检查取消标志，如果被取消则立即停止下载并删除未完成的文件
-  - 在 `extract_zip` 函数中添加取消检查，如果被取消则停止解压并清理已解压的目录
-
-- ✅ **修复失败后点击移除按钮界面没有更新的问题**：
-  - 优化 `draw_downloading_status` 函数，正确处理错误、下载中、解压中、完成等所有状态
-  - 扩展 `is_downloading` 检查范围，包括 error、extracting、complete 状态
-  - 点击移除按钮后调用 `cancel_download` 清理所有相关状态
-
-#### 技术改进
-- ✅ 新增 `CancellationToken` 类型别名 (`Arc<AtomicBool>`)，用于跨线程传递取消信号
-- ✅ `download_file`、`download_file_with_fallback`、`extract_zip` 函数新增 `cancellation_token` 参数
-- ✅ 取消下载时自动删除未完成的临时文件，避免占用磁盘空间
-- ✅ UI 新增解压中状态显示 (`📦 Extracting...`)，并支持取消解压操作
-- ✅ UI 新增完成状态显示 (`✅ Complete!`)，让用户知道下载已完成即将显示安装状态
-
-#### 架构变更
-```rust
-// AppState 新增字段
-pub struct AppState {
-    // ... 其他字段 ...
-    /// 下载取消令牌 (版本标识 -> 取消标志)
-    pub cancellation_tokens: HashMap<String, Arc<AtomicBool>>,
-}
-
-// download_and_install 新增参数
-pub async fn download_and_install(
-    version: &GodotVersion,
-    config: &AppConfig,
-    progress_callback: Option<ProgressCallback>,
-    cancellation_token: CancellationToken,  // 新增
-) -> Result<PathBuf, String>
-```
-
-#### 取消机制说明
-1. 用户点击取消按钮
-2. `cancel_download` 设置对应版本的 `AtomicBool` 为 `true`
-3. 下载线程在每次读取数据块时检查该标志
-4. 如果检测到取消，删除临时文件并返回错误
-5. UI 清理所有相关状态（进度、错误标记、解压标记、完成标记）
-
-### v0.1.4 (2025-03-03) - 下载进度与解压修复 + 删除功能
-
-#### 新增功能
-- ✅ **删除引擎版本功能**：添加删除确认对话框，用户确认后永久删除引擎文件
-  - 点击版本卡片右下角的 "⋮" 菜单 → "Remove" 触发删除
-  - 显示确认对话框，列出要删除的版本信息
-  - 确认后从文件系统中删除整个安装目录
-  - 自动更新已安装版本列表和可用版本状态
-
-#### 问题修复
-- ✅ **修复下载进度条不更新问题**：之前进度条一直停在 0%，原因是版本 key 不匹配。对于 Mono 版本，下载进度使用的 key 是 `version-mono`，但 UI 检查的是 `version`
-- ✅ **修复解压时显示问题**：下载完成后不再显示进度条，改为显示 "📦 Extracting..." 提示
-- ✅ **修复安装完成后界面不更新问题**：之前下载完成后 `installed_versions` 状态不会刷新，添加了 `sync_download_progress()` 方法在每帧同步共享状态到主状态
-- ✅ **修复下载失败后进度条不消失问题**：下载失败时使用 ERROR 状态标记，UI 检测到错误状态后显示 "❌ Failed" 并提供重试和移除按钮
-
-#### 技术改进
-- ✅ 新增 `create_version_key()` 函数，在 UI 层生成正确的版本标识键（与 download.rs 保持一致）
-- ✅ 新增 `sync_download_progress()` 方法，在主循环中同步异步任务的进度和完成状态
-- ✅ 优化版本匹配逻辑，在更新安装状态时同时检查 `version` 和 `variant`，确保 Mono 版本正确识别
-- ✅ **新增 `download_state` 模块**：将下载状态常量统一管理，提高代码可读性和可维护性
-
-#### 架构优化
-- ✅ 改进共享状态同步机制，确保异步下载任务的状态变化能够实时反映到 UI 上
-- ✅ 统一版本 key 生成逻辑，避免 UI 层和 Service 层不一致导致的进度显示问题
-
-#### 下载状态常量
-为统一管理下载状态，新增 `download_state` 模块定义以下常量：
-
-```rust
-pub mod download_state {
-    /// 正常下载进度范围: 0.0 - 1.0
-    pub const PROGRESS_MIN: f32 = 0.0;
-    pub const PROGRESS_MAX: f32 = 1.0;
-
-    /// 下载失败的标记 (key: "{version}_error", value: ERROR)
-    pub const ERROR: f32 = -1.0;
-
-    /// 解压中的标记 (key: "{version}_extracting", value: EXTRACTING)
-    pub const EXTRACTING: f32 = -2.0;
-
-    /// 安装完成的标记 (key: "{version}_complete", value: COMPLETE)
-    pub const COMPLETE: f32 = -3.0;
-
-    /// 辅助函数
-    pub fn error_key(version_key: &str) -> String;
-    pub fn extracting_key(version_key: &str) -> String;
-    pub fn complete_key(version_key: &str) -> String;
-    pub fn is_error(progress: f32) -> bool;
-    pub fn is_extracting(progress: f32) -> bool;
-    pub fn is_complete(progress: f32) -> bool;
-}
-```
-
-#### 状态说明
-| 状态 | Key | Value | 说明 |
-|------|-----|-------|------|
-| 下载进度 | `{version}` | 0.0-1.0 | 正常下载进度 |
-| 错误 | `{version}_error` | -1.0 | 下载失败 |
-| 解压中 | `{version}_extracting` | -2.0 | 正在解压 |
-| 安装完成 | `{version}_complete` | -3.0 | 安装完成 |
-
-### v0.1.3 (2025-03-02) - 中国镜像支持与地区自动检测
-
-#### 问题修复
-- ✅ 修复切换到中国镜像时获取引擎版本出错的 bug
-- ✅ 优化 API URL 构建逻辑，使用 `full_api_url` 方法正确拼接镜像 URL
-- ✅ 改进日志输出，便于调试镜像源请求
-- ✅ **新增镜像回退机制**：当中国镜像服务不可用时，自动回退到 GitHub 官方 API，确保用户始终可以获取版本列表和下载引擎文件
-- ✅ **下载内容验证**：新增 `validate_zip_file` 函数，在解压前验证下载的文件是否为有效的 ZIP 格式
-- ✅ **下载回退机制**：如果镜像下载失败，自动尝试 GitHub 官方 URL 进行下载
-
-#### 新增功能
-- ✅ **地区自动检测**：新增 `region` 模块，自动检测用户时区和语言设置
-- ✅ **自动切换镜像站**：在中国地区（检测到 Asia/Shanghai 等时区或 zh_CN 等语言时）自动切换为 `ChinaMirror` 下载源
-- ✅ **手动选择镜像源**：支持 GitHub 官方源、ghproxy.com 镜像、gitclone.com 镜像三种选项
-- ✅ **自动检测开关**：在设置面板中添加"Auto-detect region"选项，可手动开启或关闭地区自动检测
-- ✅ **实时检测显示**：开启自动检测后，实时显示当前检测到的地区（🇨🇳 China / 🌍 International）
-
-#### 技术改进
-- ✅ 新增 `src/utils/region.rs` 模块，提供 `is_china_timezone()` 和 `has_chinese_locale()` 检测函数
-- ✅ `AppConfig` 新增 `auto_detect_region` 配置项，默认启用
-- ✅ `DownloadSource` 新增 `full_api_url()` 方法，正确处理镜像 URL 拼接
-- ✅ 启动时自动检测地区并设置合适的下载源
-
-#### 配置示例
 ```json
 {
   "install_dir": "/Users/user/.gdhub/versions",
   "projects_dir": "/Users/user/Godot",
   "check_updates_on_start": true,
   "theme": "Dark",
-  "download_source": "ChinaMirror",
-  "auto_detect_region": true
+  "download_source": "GitHub",
+  "custom_mirror_url": ""
 }
 ```
 
-### v0.1.3 已知问题
-⚠️ **注意**：部分中国镜像服务（如 ghproxy.com）目前存在不稳定或已更换域名的情况。代码已实现自动回退机制，当检测到镜像不可用时会自动切换到官方 GitHub API。在中国大陆使用时，如遇到版本列表加载失败或下载报错，请检查网络连接或手动切换下载源（设置面板 → Download Source → GitHub）。
+---
 
+## 10. 占位接口与已知缺陷
 
-### v0.1.2 (2025-01-17) - 下载功能修复
+以下是代码中存在但**尚未实现**的功能接口，已用 `// TODO` 或日志占位，需要后续实现：
 
-#### 问题修复
-- ✅ 修复点击下载后只显示假进度条的 bug
-- ✅ 实现真实的下载进度更新机制
-- ✅ 下载完成后自动将版本添加到已安装列表
-- ✅ 支持流式下载，实时报告下载进度
+### 10.1 Projects 面板（projects_panel.rs）
 
-#### 技术改进
-- ✅ 使用共享状态机制 (`Arc<Mutex<AppState>>`) 实现异步任务与主线程状态同步
-- ✅ 实现流式下载支持大文件进度报告
-- ✅ 添加解压后自动查找 Godot 可执行文件功能
-- ✅ 移除假的进度条模拟代码
+| 接口 | 位置 | 问题描述 |
+|------|------|---------|
+| `parse_godot_version()` | `projects_panel.rs` | 始终返回硬编码的 `"4.x"`，未解析 `project.godot` 文件 |
+| "New Project" 按钮 | `draw_action_buttons()` | 仅打印日志，无实际功能 |
+| "Import Project" 按钮 | `draw_action_buttons()` | 仅打印日志，无实际功能 |
+| "Open" 项目按钮 | `draw_project_item()` | 仅打印日志，未调用 Godot 打开项目 |
+| "Toggle Favorite" 项目 | `draw_project_menu()` | 仅打印日志，收藏状态不更新 |
+| "Remove" 项目 | `draw_project_menu()` | 仅打印日志，无确认对话框和删除逻辑 |
+| "Scan" 按钮 | `draw_panel_header()` | 仅打印日志，实际已在 `draw_projects_list()` 中自动扫描 |
+| `create_sample_projects()` | `projects_panel.rs` | 死代码，从未被调用 |
 
-#### 架构优化
-- ✅ `AppState` 实现手动 `Clone`，处理无法克隆的字段（Runtime、Receiver）
-- ✅ 创建专门的共享状态版本供异步任务使用
-- ✅ 下载服务通过回调机制实时更新 UI 进度
+### 10.2 Settings 面板（settings_panel.rs）
 
-### v0.1.1 (2025-01-16) - UI 优化
+| 接口 | 位置 | 问题描述 |
+|------|------|---------|
+| "GitHub" 按钮 | `draw_about_section()` | 仅打印日志，未打开浏览器 |
+| "Website" 按钮 | `draw_about_section()` | 仅打印日志，未打开浏览器 |
+| `check_updates_on_start` | `AppConfig` | UI 开关已实现，但无对应的更新检查逻辑 |
 
-#### 侧边栏优化
-- ✅ 添加应用标题区域，显示应用名称和版本
-- ✅ 使用 emoji 图标增强导航按钮可识别性
-- ✅ 实现导航按钮选中状态高亮
-- ✅ 添加统计信息卡片显示（已安装、可用、下载中）
-- ✅ 优化下载按钮位置和样式
-- ✅ 添加工具提示
+### 10.3 下载对话框（download_dialog.rs）
 
-#### 版本管理面板优化
-- ✅ 实现卡片式布局展示版本信息
-- ✅ 添加变体和状态标签（Standard/Mono/Installed）
-- ✅ 优化操作按钮布局，添加下拉菜单
-- ✅ 实现版本分组显示（Godot 4.x / 3.x）
-- ✅ 添加空状态友好提示
-- ✅ 实现路径截断和悬停显示完整路径
-- ✅ 修复进度条显示问题
+| 接口 | 位置 | 问题描述 |
+|------|------|---------|
+| 搜索栏 | `draw_search_bar()` | `search_text` 是本地变量，每帧重置，搜索无效果 |
+| Filter 按钮 | `draw_search_bar()` | 仅渲染按钮，无筛选逻辑 |
+| "Cancel All" 按钮 | `draw_download_queue_status()` | 下载数量统计未过滤特殊 key（含 `_error` 等），数量可能偏高 |
+| `draw_download_details()` | 公开函数 | 已实现但从未在 UI 流程中调用 |
+| `initiate_download()` | 公开函数 | 封装层，从未在 UI 流程中调用 |
+| `get_download_stats()` | 公开函数 | 从未被调用，计算逻辑也不正确（completed 仅计 progress >= 1.0） |
 
-#### 项目管理面板优化
-- ✅ 实现卡片式项目展示
-- ✅ 添加项目有效性检测和标签
-- ✅ 优化空状态提示
-- ✅ 添加快捷操作按钮
-- ✅ 实现项目目录扫描功能
+### 10.4 样式模块（style.rs）
 
-#### 设置面板优化
-- ✅ 使用卡片式分组
-- ✅ 添加目录快捷操作（打开文件夹）
-- ✅ 优化设置项布局和说明
-- ✅ 添加主题选择占位
+| 接口 | 位置 | 问题描述 |
+|------|------|---------|
+| `Theme::System` | `ThemeColors::from_theme()` | 回退为深色主题，系统主题检测未实现 |
+| `pub mod colors {}` | `style.rs` | 空模块，注释称"向后兼容"，实际无内容且无引用 |
 
-#### 下载对话框优化
-- ✅ 增加对话框尺寸和可调整性
-- ✅ 实现版本分组显示
-- ✅ 添加下载队列状态显示
-- ✅ 优化进度条显示
-- ✅ 添加取消所有下载功能
-- ✅ 添加搜索栏占位
+### 10.5 工具模块（utils/region.rs）
 
-### 设计改进
-- ✅ 统一使用卡片式布局
-- ✅ 实现清晰的信息层次
-- ✅ 添加状态标签和图标
-- ✅ 优化间距和对齐
-- ✅ 添加工具提示和悬停效果
-- ✅ 实现响应式设计基础
+| 接口 | 位置 | 问题描述 |
+|------|------|---------|
+| `should_use_china_mirror()` | `region.rs` | 完整实现了时区和语言检测，但从未被调用。历史上可能用于自动选择 China 镜像源，该源已被移除 |
 
-## 11. 后续开发计划
+### 10.6 状态持久化
 
-### 短期目标 (v0.2.0)
-- [x] 集成 GitHub API 获取真实版本列表
-- [x] 实现真实下载和解压功能
-- [ ] 添加文件选择对话框
-- [ ] 实现删除版本功能
-- [ ] 添加状态持久化
+| 问题 | 描述 |
+|------|------|
+| `is_favorite` 不持久化 | 用户设置的收藏在重启后丢失 |
+| `last_used` 不持久化 | 最后使用时间在重启后丢失 |
+| `AppState` 有 `Serialize`/`Deserialize` | 派生了序列化 trait 但实际上从未整体序列化/恢复 |
 
-### 中期目标 (v0.3.0)
-- [ ] 完善项目管理功能
-- [ ] 实现主题切换
-- [ ] 添加键盘快捷键
-- [ ] 优化错误处理和提示
+### 10.7 平台兼容性问题
 
-### 长期目标 (v1.0.0)
-- [ ] 实现自动更新检查
-- [ ] 添加插件系统
-- [ ] 支持多语言
-- [ ] 完整的测试覆盖
-
-## 12. 技术债务
-
-### 待优化项
-1. **状态管理**: AppState 需要更好的关注点分离
-2. **异步处理**: 下载服务需要完整的错误处理和重试机制
-3. **测试覆盖**: 缺少单元测试和集成测试
-4. **性能优化**: 大量版本时的渲染性能优化
-
-### 代码规范
-- 遵循 Rust API 指南
-- 使用 clippy 进行代码检查
-- 保持函数长度适中
-- 添加必要的文档注释
-
-## 13. 参考资源
-
-- [egui 官方文档](https://docs.rs/egui/)
-- [eframe 示例](https://github.com/emilk/egui/tree/master/examples)
-- [Godot 官方网站](https://godotengine.org/)
-- [Godot GitHub Releases](https://github.com/godotengine/godot/releases)
-- [Rust API 指南](https://rust-lang.github.io/api-guidelines/)
+| 问题 | 描述 |
+|------|------|
+| macOS `.app` 包检测 | `find_godot_executable()` 只处理文件，macOS 上 Godot 解压后是 `.app` 目录包，可能找不到正确的可执行文件路径 |
+| `open_folder` 三处重复 | `versions_panel.rs`、`projects_panel.rs`、`settings_panel.rs` 各自定义了相同的 `open_folder` 函数，应提取到 `utils` |
+| `DownloadSource::mirror_prefix()` | 方法返回空字符串，实际 URL 构建逻辑在 `get_api_url()` 和 `convert_to_mirror_url()` 中，该方法为无效接口 |
 
 ---
 
-**文档版本**: 1.1  
-**最后更新**: 2025-01-16  
-**维护者**: Godot Hub 开发团队
+## 11. 开发计划
+
+### 短期（v0.2.0）
+
+- 实现 `is_favorite` 和 `last_used` 的持久化（独立的 installed.json）
+- 修复 macOS `.app` 包可执行文件查找逻辑
+- 实现搜索/筛选版本功能（下载对话框）
+- 实现"打开项目"功能（通过指定 Godot 版本打开）
+- 实现 `parse_godot_version()` 解析 `project.godot` 文件
+- 清理 `region.rs` 死代码或接入自动检测流程
+- 提取公共 `open_folder` 到 `utils`
+
+### 中期（v0.3.0）
+
+- 项目管理完整实现（新建、导入、删除、收藏）
+- `Theme::System` 系统主题检测实现
+- `check_updates_on_start` 接入实际更新检查逻辑
+- 键盘快捷键支持
+- 工具提示完善
+
+### 长期（v1.0.0）
+
+- 多语言支持（i18n）
+- 导出模板管理（`GodotVariant::ExportTemplates`）
+- 断点续传下载
+- 应用自身更新机制
+
+---
+
+## 12. 参考资源
+
+- [egui 文档](https://docs.rs/egui)
+- [eframe 文档](https://docs.rs/eframe)
+- [GitHub REST API - Releases](https://docs.github.com/en/rest/releases/releases)
+- [Godot Engine 下载页](https://godotengine.org/download)
+- [Godot GitHub Releases](https://github.com/godotengine/godot/releases)
