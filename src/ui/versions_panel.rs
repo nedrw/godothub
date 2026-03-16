@@ -286,6 +286,12 @@ fn draw_installed_version_card(
                 if response.clicked() {
                     if let Err(e) = services::launch_godot(&install.path) {
                         log::error!("Failed to launch Godot: {}", e);
+                    } else {
+                        // 启动成功：更新最后使用时间并持久化
+                        if let Some(item) = state.installed_versions.get_mut(index) {
+                            item.mark_used();
+                        }
+                        state.save_install_meta();
                     }
                 }
             });
@@ -319,6 +325,8 @@ fn draw_version_menu(ui: &mut egui::Ui, index: usize, state: &mut AppState, _col
                 if let Some(item) = state.installed_versions.get_mut(index) {
                     item.is_favorite = !item.is_favorite;
                 }
+                // 收藏状态变更后立即持久化
+                state.save_install_meta();
                 ui.close_menu();
             }
         }

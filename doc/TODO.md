@@ -1,7 +1,7 @@
 # Godot Hub - 待办事项
 
 **当前版本**: v0.1.0  
-**构建状态**: 可编译运行，核心下载/管理功能可用，P0/P2 缺陷已全部修复，编译零 warning
+**构建状态**: 可编译运行，核心下载/管理功能可用，P0/P1（持久化）/P2 缺陷已全部修复，编译零 warning
 
 ---
 
@@ -39,9 +39,17 @@
 
 ### 状态持久化
 
-- [ ] **收藏和使用时间不持久化**  
-  `GodotInstall.is_favorite` 和 `last_used` 重启后丢失。  
-  需要新增 `~/.gdhub/installed.json` 存储这两个字段，启动时与扫描结果合并。
+- [x] **收藏和使用时间不持久化** ✅ 已修复（`state/install_meta.rs`）  
+  新增 `InstallMetaStore` 结构体，将 `is_favorite` 和 `last_used` 持久化到  
+  `~/.gdhub/installed.json`（与安装目录同级，便于统一备份）。  
+  - **加载**：`load_installed_versions()` 扫描磁盘后自动合并元数据文件  
+  - **写入**：切换收藏（`draw_version_menu`）、启动版本（Run 按钮成功后调用  
+    `mark_used()`）、删除版本（`remove_installed_version` 内部）三处均触发  
+    `AppState::save_install_meta()`  
+  - **原子写入**：先写 `.json.tmp` 临时文件，再 rename 覆盖，防止写入中途崩溃  
+    导致文件损坏  
+  - **容错**：文件缺失或 JSON 解析失败时均静默返回空存储，不影响正常启动  
+  - **单元测试**：6 项测试覆盖 key 格式、增删查、序列化往返、空文件加载
 
 ### 项目管理
 
@@ -137,7 +145,7 @@
 | 搜索栏 | ✅ 已修复 | 输入持久化 + 版本号/变体名称实时过滤均已实现；Filter 按钮下拉筛选待实现（P2） |
 | 主题切换 | ✅ 完整 | Dark/Light/System 均已实现；System 通过 `detect_system_dark_mode()` 每 30 秒轮询，动态响应系统主题切换 |
 | 项目管理 | 🔴 占位 | 扫描可用，其余操作均为 TODO |
-| 收藏/使用时间 | 🔴 缺失 | 内存状态，重启丢失 |
+| 收藏/使用时间 | ✅ 已修复 | `~/.gdhub/installed.json` 持久化；切换收藏/启动/删除均触发写盘；原子写入防损坏 |
 | 更新检查 | 🔴 缺失 | 配置开关存在，逻辑未实现 |
 
 ---
@@ -148,7 +156,8 @@
 
 | 类型 | 处理方式 | 涉及位置 |
 |------|---------|---------|
-| **删除死代码** | 彻底移除 | `utils/region.rs`（整个模块）、`style.rs` 空 `colors` 模块及 `BADGE_BLUE` 常量、`github_api.rs` 两个 wrapper 函数、`download_dialog.rs` 四个未接入函数、`projects_panel.rs` `create_sample_projects()`、`DownloadSource::mirror_prefix()` / `api_proxy_url()` |
+| **删除死代码** | 彻底移除 | `utils/region.rs`（整个模块）、`style.rs` 空 `colors {}` 模块及 `BADGE_BLUE` 常量、`github_api.rs` 两个 wrapper 函数、`download_dialog.rs` 四个未接入函数、`projects_panel.rs` `create_sample_projects()`、`DownloadSource::mirror_prefix()` / `api_proxy_url()`（P2 阶段）、三处重复的局部 `fn open_folder`（P2 阶段）  |
+| **新增持久化层** | `state/install_meta.rs` | `InstallMetaStore`（`HashMap<String, InstallMeta>`）+ 原子写盘 + 容错加载；`app_state_impl.rs` 接入加载/保存/删除三处调用点；`versions_panel.rs` 接入收藏切换和 Run 按钮 |
 | **修复机械错误** | 直接修正 | 4 处未使用 import（`Ordering`、`Mutex`、`download_state`、`fetch_all_versions_with_source`）、`mut archive` 去掉多余 `mut`、`extract_callback` 加 `_` 前缀 |
 | **未来 API 保留** | `#[allow(dead_code)]` | 模型层方法（`GodotInstall`/`GodotVersion`/`GodotVariant`）、工具层（`file_utils.rs` 模块级）、服务接口（`launcher.rs`、`download_state` 子项）、配置方法（`AppConfig`/`DownloadSource`/`Theme`）、状态方法（`AppState` impl 中 6 个工具方法）、UI 辅助（`style.rs` 未使用常量/函数，`settings_panel.rs` 2 个工具函数） |
 

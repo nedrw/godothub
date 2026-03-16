@@ -41,6 +41,9 @@ Godot Hub 是一个用 Rust 编写的跨平台 Godot 引擎管理器。它通过
 
 ## 3. 目录结构
 
+> `state/install_meta.rs` 为本轮新增文件，负责已安装版本用户状态的持久化。
+
+
 ```
 src/
 ├── main.rs              # 入口点、GodotHubApp、eframe App 实现
@@ -429,9 +432,18 @@ AppState::remove_installed_version(index)
 
 | 问题 | 描述 |
 |------|------|
-| `is_favorite` 不持久化 | 用户设置的收藏在重启后丢失 |
-| `last_used` 不持久化 | 最后使用时间在重启后丢失 |
-| `AppState` 有 `Serialize`/`Deserialize` | 派生了序列化 trait 但实际上从未整体序列化/恢复 |
+| `is_favorite` 不持久化 | ✅ **已修复**：通过 `InstallMetaStore` 持久化到 `~/.gdhub/installed.json`；`load_installed_versions()` 在磁盘扫描后自动合并元数据文件；`draw_version_menu` 切换收藏时调用 `save_install_meta()`。 |
+| `last_used` 不持久化 | ✅ **已修复**：Run 按钮启动成功后调用 `install.mark_used()` 更新时间戳，随即调用 `save_install_meta()` 写盘。 |
+| 删除版本后元数据残留 | ✅ **已处理**：`remove_installed_version()` 末尾调用 `save_install_meta()`，以当前（已移除该项的）`installed_versions` 覆盖写入，自动清理已删版本的元数据条目。 |
+| `AppState` 有 `Serialize`/`Deserialize` | 仍保留（未来可扩展），但实际整体序列化/恢复未实现；当前仅 `AppConfig` 和 `InstallMetaStore` 分别独立序列化。 |
+
+#### InstallMetaStore 设计要点
+
+- **存储路径**：`~/.gdhub/installed.json`，与安装目录（`~/.gdhub/versions/`）同级，便于统一备份。
+- **数据结构**：`HashMap<String, InstallMeta>`，键格式为 `"version-variant"`（如 `"4.3-Standard"`），与路径无关，在用户修改安装目录后仍可正确匹配。
+- **原子写入**：先写 `.json.tmp` 临时文件，再 `rename` 覆盖目标文件，防止写入中途崩溃导致文件损坏。
+- **容错加载**：文件缺失（正常首次运行）或 JSON 解析失败时均静默返回空存储，不阻断应用启动。
+- **单元测试**：6 项测试覆盖键格式、增删查改、序列化往返、空存储边界条件。
 
 ### 10.7 平台兼容性问题
 
@@ -462,7 +474,6 @@ AppState::remove_installed_version(index)
 
 ### 短期（v0.2.0）
 
-- 实现 `is_favorite` 和 `last_used` 的持久化（独立的 installed.json）
 - 实现"打开项目"功能（通过指定 Godot 版本打开）
 - 实现 `parse_godot_version()` 解析 `project.godot` 文件中的 `config_version` 字段
 

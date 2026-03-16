@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::Arc;
 
+use super::install_meta::{InstallMeta, InstallMetaStore};
 use super::{AppState, RefreshResult};
 use crate::models::{GodotInstall, GodotVariant};
 
@@ -47,7 +48,7 @@ pub fn detect_platform() -> String {
 }
 
 impl AppState {
-    /// 从磁盘加载已安装的版本
+    /// 从磁盘加载已安装的版本，并合并持久化的用户元数据（收藏、最后使用时间）
     pub fn load_installed_versions(&mut self) {
         let versions_dir = &self.config.install_dir;
         if !versions_dir.exists() {
@@ -79,8 +80,46 @@ impl AppState {
             }
         }
 
+        // 合并持久化元数据（收藏状态、最后使用时间）
+        // 磁盘扫描只能还原版本存在与否，用户操作状态必须从元数据文件读取
+        let meta_store = InstallMetaStore::load();
+        for install in &mut self.installed_versions {
+            if let Some(meta) = meta_store.get(&install.version, &install.variant) {
+                install.is_favorite = meta.is_favorite;
+                install.last_used = meta.last_used;
+            }
+        }
+        log::debug!(
+            "Loaded {} installed versions, merged {} meta entries",
+            self.installed_versions.len(),
+            meta_store.len()
+        );
+
         // 更新可用版本的安装状态
         self.update_install_status();
+    }
+
+    /// 将当前 `installed_versions` 的用户状态（收藏、最后使用时间）持久化到磁盘。
+    ///
+    /// 应在以下操作后调用：
+    /// - 切换收藏（`toggle_favorite`）
+    /// - 启动版本（`launch_godot` 成功后更新 `last_used`）
+    /// - 删除版本（`remove_installed_version` 内部调用）
+    pub fn save_install_meta(&self) {
+        let mut store = InstallMetaStore::default();
+        for install in &self.installed_versions {
+            store.set(
+                &install.version,
+                &install.variant,
+                InstallMeta {
+                    is_favorite: install.is_favorite,
+                    last_used: install.last_used,
+                },
+            );
+        }
+        if let Err(e) = store.save() {
+            log::error!("Failed to save install metadata: {}", e);
+        }
     }
 
     /// 更新可用版本的安装状态
@@ -212,6 +251,9 @@ impl AppState {
                 available.install_path = None;
             }
         }
+
+        // 持久化：remaining installed_versions 已不含被删版本，直接覆盖写入
+        self.save_install_meta();
 
         Ok(removed)
     }
