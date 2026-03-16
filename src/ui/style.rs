@@ -269,18 +269,18 @@ pub fn setup_visuals(ctx: &egui::Context, theme: Theme) {
                 std::sync::Arc::new(egui::FontData::from_owned(font_bytes)),
             );
 
-            // 将系统字体添加为回退字体（放在最后）
+            // 将系统字体作为主要字体（放在最前面）
             font_definitions
                 .families
                 .entry(egui::FontFamily::Proportional)
                 .or_default()
-                .push("system_unicode".to_owned());
+                .insert(0, "system_unicode".to_owned());
 
             font_definitions
                 .families
                 .entry(egui::FontFamily::Monospace)
                 .or_default()
-                .push("system_unicode".to_owned());
+                .insert(0, "system_unicode".to_owned());
 
             log::info!("Loaded system Unicode font: {}", system_font_path.display());
         } else {
