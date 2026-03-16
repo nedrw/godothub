@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 
-use crate::models::{GodotInstall, GodotVariant};
 use super::{AppState, RefreshResult};
+use crate::models::{GodotInstall, GodotVariant};
 
 /// 检测当前平台
 pub fn detect_platform() -> String {
@@ -89,7 +89,9 @@ impl AppState {
                 installed.version == available.version && installed.variant == available.variant
             });
             if available.is_installed {
-                if let Some(installed) = self.installed_versions.iter()
+                if let Some(installed) = self
+                    .installed_versions
+                    .iter()
                     .find(|i| i.version == available.version && i.variant == available.variant)
                 {
                     available.install_path = Some(installed.path.clone());
@@ -102,16 +104,40 @@ impl AppState {
     fn parse_version_dir(name: &str) -> (String, GodotVariant) {
         let name_lower = name.to_lowercase();
         if name_lower.contains("mono") {
-            (name.replace("-mono", "").replace("_mono", "").to_string(), GodotVariant::Mono)
+            (
+                name.replace("-mono", "").replace("_mono", "").to_string(),
+                GodotVariant::Mono,
+            )
         } else {
             (name.to_string(), GodotVariant::Standard)
         }
     }
 
     /// 在指定目录中查找 Godot 可执行文件
+    ///
+    /// - macOS：优先查找 `.app` 目录包（Godot 在 macOS 上以 `.app` bundle 形式分发），
+    ///   找到后直接返回 `.app` 路径，供 `open` 命令启动。
+    /// - Windows：查找 `.exe` 可执行文件。
+    /// - Linux / macOS 回退：查找具有执行权限的**文件**（排除目录，避免误匹配）。
     fn find_godot_executable(path: &Path, _variant: &GodotVariant) -> PathBuf {
-        // 尝试查找任何 Godot 可执行文件
-        // 首先遍历目录查找可执行文件
+        // ── macOS：优先检测 .app bundle ──────────────────────────────────────────
+        #[cfg(target_os = "macos")]
+        {
+            if let Ok(entries) = std::fs::read_dir(path) {
+                for entry in entries.flatten() {
+                    let entry_path = entry.path();
+                    let file_name = entry.file_name();
+                    let name = file_name.to_string_lossy();
+                    if name.ends_with(".app") && entry_path.is_dir() {
+                        log::info!("Found macOS .app bundle: {}", entry_path.display());
+                        return entry_path;
+                    }
+                }
+            }
+            // 未找到 .app，继续用通用 Unix 逻辑（解压结构异常时的最后手段）
+        }
+
+        // ── 遍历目录查找可执行文件（Windows / Linux，以及 macOS 回退）────────────
         if let Ok(entries) = std::fs::read_dir(path) {
             for entry in entries.flatten() {
                 let file_name = entry.file_name();
@@ -122,13 +148,12 @@ impl AppState {
                     continue;
                 }
 
-                // 检查是否是可执行文件
                 #[cfg(unix)]
                 {
                     if let Ok(metadata) = entry.metadata() {
                         use std::os::unix::fs::PermissionsExt;
-                        if metadata.permissions().mode() & 0o111 != 0 {
-                            // 这是一个可执行文件
+                        // 只匹配文件，排除目录（macOS .app 已在上方处理）
+                        if metadata.is_file() && metadata.permissions().mode() & 0o111 != 0 {
                             return entry.path();
                         }
                     }
@@ -170,7 +195,10 @@ impl AppState {
 
         // 删除安装目录
         if install_path.exists() {
-            log::info!("Deleting installation directory: {}", install_path.display());
+            log::info!(
+                "Deleting installation directory: {}",
+                install_path.display()
+            );
             std::fs::remove_dir_all(&install_path)
                 .map_err(|e| format!("Failed to delete directory: {}", e))?;
             log::info!("Successfully deleted: {}", install_path.display());
@@ -209,17 +237,18 @@ impl AppState {
 
         // 异步删除安装目录
         if install_path.exists() {
-            log::info!("Deleting installation directory: {}", install_path.display());
+            log::info!(
+                "Deleting installation directory: {}",
+                install_path.display()
+            );
 
             let install_path_clone = install_path.clone();
 
             // 使用 spawn_blocking 在后台线程执行文件删除
-            tokio::task::spawn_blocking(move || {
-                std::fs::remove_dir_all(&install_path_clone)
-            })
-            .await
-            .map_err(|e| format!("Failed to delete directory: {}", e))?
-            .map_err(|e| format!("Failed to delete directory: {}", e))?;
+            tokio::task::spawn_blocking(move || std::fs::remove_dir_all(&install_path_clone))
+                .await
+                .map_err(|e| format!("Failed to delete directory: {}", e))?
+                .map_err(|e| format!("Failed to delete directory: {}", e))?;
 
             log::info!("Successfully deleted: {}", install_path.display());
         }
@@ -247,7 +276,10 @@ impl AppState {
 
     /// 获取可用但未安装的版本数量
     pub fn available_count(&self) -> usize {
-        self.available_versions.iter().filter(|v| !v.is_installed).count()
+        self.available_versions
+            .iter()
+            .filter(|v| !v.is_installed)
+            .count()
     }
 
     /// 切换下载对话框显示状态
@@ -291,9 +323,17 @@ impl AppState {
 
         // 启动异步任务
         runtime.spawn(async move {
-            log::info!("Starting async version refresh from API (source: {:?}, custom_url: {:?})...", download_source, custom_mirror_url);
+            log::info!(
+                "Starting async version refresh from API (source: {:?}, custom_url: {:?})...",
+                download_source,
+                custom_mirror_url
+            );
 
-            let result = crate::services::fetch_all_versions_with_source_and_custom(download_source, custom_mirror_url).await;
+            let result = crate::services::fetch_all_versions_with_source_and_custom(
+                download_source,
+                custom_mirror_url,
+            )
+            .await;
 
             match &result {
                 Ok(versions) => {
@@ -335,7 +375,7 @@ impl AppState {
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
-                        .as_secs()
+                        .as_secs(),
                 );
 
                 // 更新安装状态
@@ -372,8 +412,10 @@ impl AppState {
 
                 // 同步已安装版本列表（检查是否有新安装完成）
                 for install in &s.installed_versions {
-                    if !self.installed_versions.iter().any(|i|
-                        i.version == install.version && i.variant == install.variant)
+                    if !self
+                        .installed_versions
+                        .iter()
+                        .any(|i| i.version == install.version && i.variant == install.variant)
                     {
                         self.installed_versions.push(install.clone());
                     }
@@ -381,14 +423,15 @@ impl AppState {
 
                 // 同步可用版本的安装状态
                 for available in &mut self.available_versions {
-                    let is_installed = s.installed_versions.iter().any(|i|
-                        i.version == available.version && i.variant == available.variant
-                    );
+                    let is_installed = s
+                        .installed_versions
+                        .iter()
+                        .any(|i| i.version == available.version && i.variant == available.variant);
                     available.is_installed = is_installed;
                     if is_installed {
-                        if let Some(installed) = s.installed_versions.iter()
-                            .find(|i| i.version == available.version && i.variant == available.variant)
-                        {
+                        if let Some(installed) = s.installed_versions.iter().find(|i| {
+                            i.version == available.version && i.variant == available.variant
+                        }) {
                             available.install_path = Some(installed.path.clone());
                         }
                     }

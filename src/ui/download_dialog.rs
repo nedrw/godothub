@@ -33,7 +33,7 @@ fn draw_download_dialog_content(ui: &mut Ui, state: &mut AppState, colors: &Them
             ui.label(
                 RichText::new("Select a Godot version to download")
                     .weak()
-                    .color(colors.text_secondary)
+                    .color(colors.text_secondary),
             );
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -53,7 +53,12 @@ fn draw_download_dialog_content(ui: &mut Ui, state: &mut AppState, colors: &Them
                         format!("Updated {}h ago", elapsed / 3600)
                     };
 
-                    ui.label(RichText::new(time_text).small().weak().color(colors.text_muted));
+                    ui.label(
+                        RichText::new(time_text)
+                            .small()
+                            .weak()
+                            .color(colors.text_muted),
+                    );
                     ui.add_space(8.0);
                 }
 
@@ -64,20 +69,16 @@ fn draw_download_dialog_content(ui: &mut Ui, state: &mut AppState, colors: &Them
                     "🔄"
                 };
 
-                let refresh_btn = egui::Button::new(refresh_text)
-                    .fill(egui::Color32::TRANSPARENT);
+                let refresh_btn = egui::Button::new(refresh_text).fill(egui::Color32::TRANSPARENT);
 
-                let response = ui.add_enabled(
-                    !state.version_refresh_state.is_refreshing,
-                    refresh_btn
-                );
-                let response = response.on_hover_text(
-                    if state.version_refresh_state.is_refreshing {
+                let response =
+                    ui.add_enabled(!state.version_refresh_state.is_refreshing, refresh_btn);
+                let response =
+                    response.on_hover_text(if state.version_refresh_state.is_refreshing {
                         "Refreshing..."
                     } else {
                         "Refresh version list from GitHub"
-                    }
-                );
+                    });
 
                 if response.clicked() {
                     log::info!("Refresh version list requested");
@@ -92,13 +93,20 @@ fn draw_download_dialog_content(ui: &mut Ui, state: &mut AppState, colors: &Them
     ui.separator();
     ui.add_space(8.0);
 
-    // 搜索栏（占位）
-    draw_search_bar(ui, colors);
+    // 搜索栏
+    draw_search_bar(ui, state, colors);
 
     ui.add_space(8.0);
 
-    // 下载队列状态
-    if !state.downloads_in_progress.is_empty() {
+    // 下载队列状态：仅统计活跃下载（排除 _error / _extracting / _complete 等特殊 key）
+    let active_download_count = state
+        .downloads_in_progress
+        .keys()
+        .filter(|k| {
+            !k.ends_with("_error") && !k.ends_with("_extracting") && !k.ends_with("_complete")
+        })
+        .count();
+    if active_download_count > 0 {
         draw_download_queue_status(ui, state, colors);
         ui.add_space(8.0);
     }
@@ -119,11 +127,9 @@ fn draw_download_dialog_content(ui: &mut Ui, state: &mut AppState, colors: &Them
     // 底部按钮
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let close_btn = egui::Button::new(
-                RichText::new("Close").color(colors.text_primary)
-            )
-            .fill(colors.bg_secondary)
-            .min_size(Vec2::new(80.0, 28.0));
+            let close_btn = egui::Button::new(RichText::new("Close").color(colors.text_primary))
+                .fill(colors.bg_secondary)
+                .min_size(Vec2::new(80.0, 28.0));
 
             if ui.add(close_btn).clicked() {
                 state.show_download_dialog = false;
@@ -133,21 +139,21 @@ fn draw_download_dialog_content(ui: &mut Ui, state: &mut AppState, colors: &Them
 }
 
 /// 绘制搜索栏
-fn draw_search_bar(ui: &mut Ui, colors: &ThemeColors) {
+///
+/// `search_text` 存储在 `AppState::download_search_text`，帧间持久化，
+/// 避免每帧重置导致输入内容丢失。
+fn draw_search_bar(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) {
     ui.horizontal(|ui| {
-        // 搜索框
-        let mut search_text = String::new();
+        // 搜索框：绑定到 AppState 字段，保证帧间持久化
         ui.add_sized(
             [ui.available_width() - 120.0, 28.0],
-            egui::TextEdit::singleline(&mut search_text)
-                .hint_text("🔍 Search versions...")
+            egui::TextEdit::singleline(&mut state.download_search_text)
+                .hint_text("🔍 Search versions..."),
         );
 
         // 筛选按钮
-        let filter_btn = egui::Button::new(
-            RichText::new("Filter ▼").color(colors.text_secondary)
-        )
-        .fill(colors.bg_hover);
+        let filter_btn = egui::Button::new(RichText::new("Filter ▼").color(colors.text_secondary))
+            .fill(colors.bg_hover);
 
         let response = ui.add(filter_btn);
         response.on_hover_text("Filter by variant or platform");
@@ -165,29 +171,48 @@ fn draw_download_queue_status(ui: &mut Ui, state: &mut AppState, colors: &ThemeC
         .fill(colors.accent_blue.linear_multiply(0.1))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new("⬇️")
-                        .size(16.0)
-                );
+                ui.label(RichText::new("⬇️").size(16.0));
 
-                let count = state.downloads_in_progress.len();
+                // 只统计活跃下载，过滤 _error / _extracting / _complete 等特殊状态 key
+                let count = state
+                    .downloads_in_progress
+                    .keys()
+                    .filter(|k| {
+                        !k.ends_with("_error")
+                            && !k.ends_with("_extracting")
+                            && !k.ends_with("_complete")
+                    })
+                    .count();
                 ui.label(
-                    RichText::new(format!("{} download{} in progress", count, if count > 1 { "s" } else { "" }))
-                        .strong()
-                        .color(colors.text_primary)
+                    RichText::new(format!(
+                        "{} download{} in progress",
+                        count,
+                        if count != 1 { "s" } else { "" }
+                    ))
+                    .strong()
+                    .color(colors.text_primary),
                 );
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     // 取消全部按钮
-                    let cancel_all_btn = egui::Button::new(
-                        RichText::new("Cancel All").color(egui::Color32::WHITE)
-                    )
-                    .small()
-                    .fill(colors.error);
+                    let cancel_all_btn =
+                        egui::Button::new(RichText::new("Cancel All").color(egui::Color32::WHITE))
+                            .small()
+                            .fill(colors.error);
 
                     if ui.add(cancel_all_btn).clicked() {
-                        // 取消所有下载
-                        let keys: Vec<String> = state.downloads_in_progress.keys().cloned().collect();
+                        // 只取消活跃的下载（base key），
+                        // cancel_download 内部会自动清理其 _error / _extracting / _complete 伴生 key
+                        let keys: Vec<String> = state
+                            .downloads_in_progress
+                            .keys()
+                            .filter(|k| {
+                                !k.ends_with("_error")
+                                    && !k.ends_with("_extracting")
+                                    && !k.ends_with("_complete")
+                            })
+                            .cloned()
+                            .collect();
                         for key in keys {
                             services::cancel_download(&key, state);
                         }
@@ -205,7 +230,11 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
             ui.add_space(40.0);
             ui.spinner();
             ui.add_space(16.0);
-            ui.label(RichText::new("Fetching versions from GitHub...").weak().color(colors.text_secondary));
+            ui.label(
+                RichText::new("Fetching versions from GitHub...")
+                    .weak()
+                    .color(colors.text_secondary),
+            );
             ui.add_space(40.0);
         });
         return;
@@ -221,7 +250,11 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("⚠️").size(16.0));
                     ui.vertical(|ui| {
-                        ui.label(RichText::new("Failed to fetch version list").strong().color(colors.text_primary));
+                        ui.label(
+                            RichText::new("Failed to fetch version list")
+                                .strong()
+                                .color(colors.text_primary),
+                        );
                         ui.label(RichText::new(error).small().weak().color(colors.text_muted));
                     });
                 });
@@ -235,13 +268,16 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
     if versions.is_empty() {
         ui.vertical_centered(|ui| {
             ui.add_space(40.0);
-            ui.label(RichText::new("No versions available").weak().color(colors.text_muted));
+            ui.label(
+                RichText::new("No versions available")
+                    .weak()
+                    .color(colors.text_muted),
+            );
             ui.add_space(8.0);
 
-            let retry_btn = egui::Button::new(
-                RichText::new("🔄 Retry").color(egui::Color32::WHITE)
-            )
-            .fill(colors.accent_blue);
+            let retry_btn =
+                egui::Button::new(RichText::new("🔄 Retry").color(egui::Color32::WHITE))
+                    .fill(colors.accent_blue);
 
             if ui.add(retry_btn).clicked() {
                 state.refresh_available_versions();
@@ -252,30 +288,42 @@ fn draw_version_groups(ui: &mut Ui, state: &mut AppState, colors: &ThemeColors) 
     }
 
     // 统计各分组数量
-    let godot4_count = versions.iter().filter(|v| v.version.starts_with('4') && !v.is_installed).count();
-    let godot3_count = versions.iter().filter(|v| v.version.starts_with('3') && !v.is_installed).count();
+    let godot4_count = versions
+        .iter()
+        .filter(|v| v.version.starts_with('4') && !v.is_installed)
+        .count();
+    let godot3_count = versions
+        .iter()
+        .filter(|v| v.version.starts_with('3') && !v.is_installed)
+        .count();
 
     // Godot 4.x 分组
     if godot4_count > 0 {
-        ui.collapsing(format!("🚀 Godot 4.x ({} available)", godot4_count), |ui| {
-            ui.add_space(8.0);
-            for version in versions.iter().filter(|v| v.version.starts_with('4')) {
-                draw_version_item(ui, version, state, colors);
-                ui.add_space(6.0);
-            }
-        });
+        ui.collapsing(
+            format!("🚀 Godot 4.x ({} available)", godot4_count),
+            |ui| {
+                ui.add_space(8.0);
+                for version in versions.iter().filter(|v| v.version.starts_with('4')) {
+                    draw_version_item(ui, version, state, colors);
+                    ui.add_space(6.0);
+                }
+            },
+        );
         ui.add_space(8.0);
     }
 
     // Godot 3.x 分组
     if godot3_count > 0 {
-        ui.collapsing(format!("📦 Godot 3.x ({} available)", godot3_count), |ui| {
-            ui.add_space(8.0);
-            for version in versions.iter().filter(|v| v.version.starts_with('3')) {
-                draw_version_item(ui, version, state, colors);
-                ui.add_space(6.0);
-            }
-        });
+        ui.collapsing(
+            format!("📦 Godot 3.x ({} available)", godot3_count),
+            |ui| {
+                ui.add_space(8.0);
+                for version in versions.iter().filter(|v| v.version.starts_with('3')) {
+                    draw_version_item(ui, version, state, colors);
+                    ui.add_space(6.0);
+                }
+            },
+        );
     }
 }
 
@@ -288,12 +336,23 @@ fn create_version_key(version: &GodotVersion) -> String {
     }
 }
 
-fn draw_version_item(ui: &mut Ui, version: &GodotVersion, state: &mut AppState, colors: &ThemeColors) {
+fn draw_version_item(
+    ui: &mut Ui,
+    version: &GodotVersion,
+    state: &mut AppState,
+    colors: &ThemeColors,
+) {
     let version_key = create_version_key(version);
     let is_downloading = state.downloads_in_progress.contains_key(&version_key)
-        || state.downloads_in_progress.contains_key(&download_state::error_key(&version_key))
-        || state.downloads_in_progress.contains_key(&download_state::extracting_key(&version_key))
-        || state.downloads_in_progress.contains_key(&download_state::complete_key(&version_key));
+        || state
+            .downloads_in_progress
+            .contains_key(&download_state::error_key(&version_key))
+        || state
+            .downloads_in_progress
+            .contains_key(&download_state::extracting_key(&version_key))
+        || state
+            .downloads_in_progress
+            .contains_key(&download_state::complete_key(&version_key));
 
     egui::Frame::group(ui.style())
         .inner_margin(10.0)
@@ -305,7 +364,7 @@ fn draw_version_item(ui: &mut Ui, version: &GodotVersion, state: &mut AppState, 
                 colors.success.linear_multiply(0.5)
             } else {
                 colors.border
-            }
+            },
         ))
         .fill(if version.is_installed {
             colors.success.linear_multiply(0.08)
@@ -322,14 +381,18 @@ fn draw_version_item(ui: &mut Ui, version: &GodotVersion, state: &mut AppState, 
                             RichText::new(&version.version)
                                 .size(15.0)
                                 .strong()
-                                .color(colors.text_primary)
+                                .color(colors.text_primary),
                         );
 
                         // 变体标签
                         let (variant_text, variant_color) = match version.variant {
                             crate::models::GodotVariant::Mono => ("Mono", colors.badge_purple),
-                            crate::models::GodotVariant::Standard => ("Standard", colors.badge_green),
-                            crate::models::GodotVariant::ExportTemplates => ("Export", colors.badge_orange),
+                            crate::models::GodotVariant::Standard => {
+                                ("Standard", colors.badge_green)
+                            }
+                            crate::models::GodotVariant::ExportTemplates => {
+                                ("Export", colors.badge_orange)
+                            }
                         };
 
                         draw_variant_tag(ui, variant_text, variant_color);
@@ -340,7 +403,7 @@ fn draw_version_item(ui: &mut Ui, version: &GodotVersion, state: &mut AppState, 
                             RichText::new(&version.platform)
                                 .small()
                                 .weak()
-                                .color(colors.text_muted)
+                                .color(colors.text_muted),
                         );
                     });
 
@@ -351,7 +414,7 @@ fn draw_version_item(ui: &mut Ui, version: &GodotVersion, state: &mut AppState, 
                         RichText::new(format!("📅 {}", version.release_date))
                             .small()
                             .weak()
-                            .color(colors.text_secondary)
+                            .color(colors.text_secondary),
                     );
                 });
 
@@ -359,11 +422,7 @@ fn draw_version_item(ui: &mut Ui, version: &GodotVersion, state: &mut AppState, 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if version.is_installed {
                         // 已安装状态
-                        ui.label(
-                            RichText::new("✓ Installed")
-                                .color(colors.success)
-                                .strong()
-                        );
+                        ui.label(RichText::new("✓ Installed").color(colors.success).strong());
                     } else if is_downloading {
                         // 下载中状态
                         draw_downloading_status(ui, &version_key, state, colors);
@@ -382,17 +441,20 @@ fn draw_variant_tag(ui: &mut Ui, text: &str, color: egui::Color32) {
         RichText::new(format!(" {} ", text))
             .small()
             .background_color(color.linear_multiply(0.3))
-            .color(color)
+            .color(color),
     );
 }
 
 /// 绘制下载按钮
-fn draw_download_button(ui: &mut Ui, version: &GodotVersion, state: &mut AppState, colors: &ThemeColors) {
-    let download_btn = egui::Button::new(
-        RichText::new("⬇️ Download").color(egui::Color32::WHITE)
-    )
-    .fill(colors.accent_blue)
-    .min_size(Vec2::new(110.0, 28.0));
+fn draw_download_button(
+    ui: &mut Ui,
+    version: &GodotVersion,
+    state: &mut AppState,
+    colors: &ThemeColors,
+) {
+    let download_btn = egui::Button::new(RichText::new("⬇️ Download").color(egui::Color32::WHITE))
+        .fill(colors.accent_blue)
+        .min_size(Vec2::new(110.0, 28.0));
 
     let response = ui.add(download_btn);
 
@@ -411,7 +473,12 @@ fn draw_download_button(ui: &mut Ui, version: &GodotVersion, state: &mut AppStat
 }
 
 /// 绘制下载中状态
-fn draw_downloading_status(ui: &mut Ui, version_key: &str, state: &mut AppState, colors: &ThemeColors) {
+fn draw_downloading_status(
+    ui: &mut Ui,
+    version_key: &str,
+    state: &mut AppState,
+    colors: &ThemeColors,
+) {
     // 先获取各种状态
     let error_key = download_state::error_key(version_key);
     let extracting_key = download_state::extracting_key(version_key);
@@ -423,38 +490,41 @@ fn draw_downloading_status(ui: &mut Ui, version_key: &str, state: &mut AppState,
     let is_complete = state.downloads_in_progress.contains_key(&complete_key);
 
     // 检查是否为错误状态
-    let is_error = error_progress.map(download_state::is_error).unwrap_or(false);
+    let is_error = error_progress
+        .map(download_state::is_error)
+        .unwrap_or(false);
 
     if is_error {
         // 显示错误状态
         ui.vertical(|ui| {
-            ui.label(
-                RichText::new("❌ Failed")
-                    .color(colors.error)
-                    .strong()
-            );
+            ui.label(RichText::new("❌ Failed").color(colors.error).strong());
 
             ui.add_space(4.0);
 
             // 重试按钮
-            let retry_btn = egui::Button::new(
-                RichText::new("🔄 Retry").color(egui::Color32::WHITE)
-            )
-            .small()
-            .fill(colors.accent_blue);
+            let retry_btn =
+                egui::Button::new(RichText::new("🔄 Retry").color(egui::Color32::WHITE))
+                    .small()
+                    .fill(colors.accent_blue);
 
             if ui.add(retry_btn).clicked() {
                 // 移除错误状态标记
-                state.downloads_in_progress.remove(&download_state::error_key(version_key));
+                state
+                    .downloads_in_progress
+                    .remove(&download_state::error_key(version_key));
                 // 重新开始下载
                 if let Some(runtime) = &state.runtime {
-                    let version_clone = state.available_versions.iter().find(|v| {
-                        let key = match v.variant {
-                            crate::models::GodotVariant::Mono => format!("{}-mono", v.version),
-                            _ => v.version.clone(),
-                        };
-                        key == version_key
-                    }).cloned();
+                    let version_clone = state
+                        .available_versions
+                        .iter()
+                        .find(|v| {
+                            let key = match v.variant {
+                                crate::models::GodotVariant::Mono => format!("{}-mono", v.version),
+                                _ => v.version.clone(),
+                            };
+                            key == version_key
+                        })
+                        .cloned();
                     if let Some(available_version) = version_clone {
                         services::start_download(&available_version, state, runtime.clone());
                     }
@@ -464,11 +534,9 @@ fn draw_downloading_status(ui: &mut Ui, version_key: &str, state: &mut AppState,
             ui.add_space(4.0);
 
             // 移除按钮
-            let remove_btn = egui::Button::new(
-                RichText::new("Remove").color(egui::Color32::WHITE)
-            )
-            .small()
-            .fill(colors.error);
+            let remove_btn = egui::Button::new(RichText::new("Remove").color(egui::Color32::WHITE))
+                .small()
+                .fill(colors.error);
 
             if ui.add(remove_btn).clicked() {
                 services::cancel_download(version_key, state);
@@ -481,17 +549,15 @@ fn draw_downloading_status(ui: &mut Ui, version_key: &str, state: &mut AppState,
             ui.label(
                 RichText::new("📦 Extracting...")
                     .color(colors.accent_blue)
-                    .strong()
+                    .strong(),
             );
 
             ui.add_space(4.0);
 
             // 取消按钮
-            let cancel_btn = egui::Button::new(
-                RichText::new("Cancel").color(egui::Color32::WHITE)
-            )
-            .small()
-            .fill(colors.warning);
+            let cancel_btn = egui::Button::new(RichText::new("Cancel").color(egui::Color32::WHITE))
+                .small()
+                .fill(colors.warning);
 
             if ui.add(cancel_btn).clicked() {
                 services::cancel_download(version_key, state);
@@ -501,11 +567,7 @@ fn draw_downloading_status(ui: &mut Ui, version_key: &str, state: &mut AppState,
     } else if is_complete {
         // 显示完成状态（短暂显示后会被安装状态替代）
         ui.vertical(|ui| {
-            ui.label(
-                RichText::new("✅ Complete!")
-                    .color(colors.success)
-                    .strong()
-            );
+            ui.label(RichText::new("✅ Complete!").color(colors.success).strong());
         });
     } else if let Some(progress) = progress {
         // 正常下载进度
@@ -516,17 +578,15 @@ fn draw_downloading_status(ui: &mut Ui, version_key: &str, state: &mut AppState,
                     .desired_width(130.0)
                     .text(format!("{:.0}%", progress * 100.0))
                     .animate(true)
-                    .fill(colors.accent_blue)
+                    .fill(colors.accent_blue),
             );
 
             ui.add_space(4.0);
 
             // 取消按钮
-            let cancel_btn = egui::Button::new(
-                RichText::new("Cancel").color(egui::Color32::WHITE)
-            )
-            .small()
-            .fill(colors.error);
+            let cancel_btn = egui::Button::new(RichText::new("Cancel").color(egui::Color32::WHITE))
+                .small()
+                .fill(colors.error);
 
             if ui.add(cancel_btn).clicked() {
                 services::cancel_download(version_key, state);
@@ -540,10 +600,7 @@ fn draw_downloading_status(ui: &mut Ui, version_key: &str, state: &mut AppState,
 pub fn draw_download_details(ui: &mut Ui, version: &GodotVersion, colors: &ThemeColors) {
     ui.separator();
 
-    ui.heading(
-        RichText::new("Download Details")
-            .color(colors.text_primary)
-    );
+    ui.heading(RichText::new("Download Details").color(colors.text_primary));
     ui.add_space(8.0);
 
     // 版本信息
@@ -551,24 +608,47 @@ pub fn draw_download_details(ui: &mut Ui, version: &GodotVersion, colors: &Theme
         .num_columns(2)
         .spacing([12.0, 8.0])
         .show(ui, |ui| {
-            ui.label(RichText::new("Version:").strong().color(colors.text_primary));
+            ui.label(
+                RichText::new("Version:")
+                    .strong()
+                    .color(colors.text_primary),
+            );
             ui.label(RichText::new(&version.version).color(colors.text_secondary));
 
-            ui.label(RichText::new("Variant:").strong().color(colors.text_primary));
-            ui.label(RichText::new(AppState::get_variant_name(&version.variant)).color(colors.text_secondary));
+            ui.label(
+                RichText::new("Variant:")
+                    .strong()
+                    .color(colors.text_primary),
+            );
+            ui.label(
+                RichText::new(AppState::get_variant_name(&version.variant))
+                    .color(colors.text_secondary),
+            );
 
-            ui.label(RichText::new("Platform:").strong().color(colors.text_primary));
+            ui.label(
+                RichText::new("Platform:")
+                    .strong()
+                    .color(colors.text_primary),
+            );
             ui.label(RichText::new(&version.platform).color(colors.text_secondary));
 
-            ui.label(RichText::new("Release Date:").strong().color(colors.text_primary));
+            ui.label(
+                RichText::new("Release Date:")
+                    .strong()
+                    .color(colors.text_primary),
+            );
             ui.label(RichText::new(&version.release_date).color(colors.text_secondary));
 
-            ui.label(RichText::new("Download URL:").strong().color(colors.text_primary));
+            ui.label(
+                RichText::new("Download URL:")
+                    .strong()
+                    .color(colors.text_primary),
+            );
             ui.label(
                 RichText::new(&version.download_url)
                     .small()
                     .weak()
-                    .color(colors.text_muted)
+                    .color(colors.text_muted),
             );
         });
 
@@ -603,7 +683,9 @@ pub fn cancel_download(version_key: &str, state: &mut AppState) -> bool {
 /// 获取下载统计信息
 pub fn get_download_stats(state: &AppState) -> (usize, usize) {
     let total = state.downloads_in_progress.len();
-    let completed = state.downloads_in_progress.values()
+    let completed = state
+        .downloads_in_progress
+        .values()
         .filter(|&&progress| progress >= 1.0)
         .count();
     (total, completed)

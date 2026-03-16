@@ -1,7 +1,10 @@
 // AppState - 应用程序状态
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
@@ -74,6 +77,9 @@ pub struct AppState {
     /// 下载取消令牌 (版本标识 -> 取消标志)（不序列化）
     #[serde(skip)]
     pub cancellation_tokens: HashMap<String, Arc<AtomicBool>>,
+    /// 下载对话框搜索文本（帧间持久化，不序列化）
+    #[serde(skip)]
+    pub download_search_text: String,
 }
 
 /// 删除确认对话框状态
@@ -99,9 +105,10 @@ impl Clone for AppState {
             runtime: None, // Runtime 不支持 Clone
             version_refresh_state: self.version_refresh_state.clone(),
             refresh_receiver: None, // Receiver 不支持 Clone
-            shared_state: None, // 避免循环引用
+            shared_state: None,     // 避免循环引用
             delete_confirm: None,
             cancellation_tokens: HashMap::new(), // 克隆时不保留取消令牌
+            download_search_text: self.download_search_text.clone(),
         }
     }
 }
@@ -133,6 +140,7 @@ impl Default for AppState {
             shared_state: None,
             delete_confirm: None,
             cancellation_tokens: HashMap::new(),
+            download_search_text: String::new(),
         }
     }
 }

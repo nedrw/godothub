@@ -169,6 +169,7 @@ pub struct AppState {
     pub shared_state: Option<Arc<Mutex<AppState>>>, // 供异步任务写入进度
     pub delete_confirm: Option<DeleteConfirmState>,
     pub cancellation_tokens: HashMap<String, Arc<AtomicBool>>,
+    pub download_search_text: String,               // 下载对话框搜索文本（帧间持久化）
 }
 ```
 
@@ -403,9 +404,9 @@ AppState::remove_installed_version(index)
 
 | 接口 | 位置 | 问题描述 |
 |------|------|---------|
-| 搜索栏 | `draw_search_bar()` | `search_text` 是本地变量，每帧重置，搜索无效果 |
-| Filter 按钮 | `draw_search_bar()` | 仅渲染按钮，无筛选逻辑 |
-| "Cancel All" 按钮 | `draw_download_queue_status()` | 下载数量统计未过滤特殊 key（含 `_error` 等），数量可能偏高 |
+| 搜索栏 | `draw_search_bar()` | ✅ **已修复**：搜索文本改为绑定 `AppState::download_search_text`，帧间持久化 |
+| Filter 按钮 | `draw_search_bar()` | 仅渲染按钮，无筛选逻辑（P2） |
+| "Cancel All" 按钮 | `draw_download_queue_status()` | ✅ **已修复**：数量统计和可见性判断均过滤 `_error`/`_extracting`/`_complete` 后缀 key；Cancel All 仅操作活跃 base key |
 | `draw_download_details()` | 公开函数 | 已实现但从未在 UI 流程中调用 |
 | `initiate_download()` | 公开函数 | 封装层，从未在 UI 流程中调用 |
 | `get_download_stats()` | 公开函数 | 从未被调用，计算逻辑也不正确（completed 仅计 progress >= 1.0） |
@@ -435,9 +436,9 @@ AppState::remove_installed_version(index)
 
 | 问题 | 描述 |
 |------|------|
-| macOS `.app` 包检测 | `find_godot_executable()` 只处理文件，macOS 上 Godot 解压后是 `.app` 目录包，可能找不到正确的可执行文件路径 |
-| `open_folder` 三处重复 | `versions_panel.rs`、`projects_panel.rs`、`settings_panel.rs` 各自定义了相同的 `open_folder` 函数，应提取到 `utils` |
-| `DownloadSource::mirror_prefix()` | 方法返回空字符串，实际 URL 构建逻辑在 `get_api_url()` 和 `convert_to_mirror_url()` 中，该方法为无效接口 |
+| macOS `.app` 包检测 | ✅ **已修复**：`find_godot_executable()` 新增 `#[cfg(target_os = "macos")]` 分支，优先枚举 `.app` 目录包并返回其路径，供 `open` 命令启动；Unix 通用回退逻辑追加 `metadata.is_file()` 检查，避免目录被误作可执行文件返回 |
+| `open_folder` 三处重复 | `versions_panel.rs`、`projects_panel.rs`、`settings_panel.rs` 各自定义了相同的 `open_folder` 函数，应提取到 `utils`（P2） |
+| `DownloadSource::mirror_prefix()` | 方法返回空字符串，实际 URL 构建逻辑在 `get_api_url()` 和 `convert_to_mirror_url()` 中，该方法为无效接口（P2） |
 
 ---
 

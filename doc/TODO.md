@@ -1,7 +1,7 @@
 # Godot Hub - 待办事项
 
 **当前版本**: v0.1.0  
-**构建状态**: 可编译运行，核心下载/管理功能可用
+**构建状态**: 可编译运行，核心下载/管理功能可用，P0 缺陷已全部修复
 
 ---
 
@@ -9,16 +9,20 @@
 
 ### 功能错误
 
-- [ ] **macOS 可执行文件查找失败**  
-  `find_godot_executable()` 只遍历文件，macOS 下 Godot 解压为 `.app` 目录包，  
-  导致无法找到正确的可执行文件路径，安装后无法启动。  
-  需要递归进入 `.app/Contents/MacOS/` 查找。
+- [x] **macOS 可执行文件查找失败** ✅ 已修复（`state/app_state_impl.rs`）  
+  `find_godot_executable()` 新增 `#[cfg(target_os = "macos")]` 分支，优先查找 `.app`
+  目录包并直接返回其路径（供 `open` 命令启动）；Unix 通用回退逻辑追加
+  `metadata.is_file()` 检查，避免目录被误匹配为可执行文件。
 
-- [ ] **下载数量统计错误**（`download_dialog.rs` `draw_download_queue_status`）  
-  直接使用 `state.downloads_in_progress.len()` 计数，未过滤 `_error`、`_extracting`、`_complete` 等特殊 key，导致显示数量偏高。
+- [x] **下载数量统计错误** ✅ 已修复（`ui/download_dialog.rs`）  
+  `draw_download_queue_status` 及 `draw_download_dialog_content` 的可见性判断均改为
+  过滤 `_error`、`_extracting`、`_complete` 后缀 key 后再计数；"Cancel All" 按钮也
+  仅对活跃 base key 调用 `cancel_download`，避免重复操作伴生 key。
 
-- [ ] **搜索栏无效**（`download_dialog.rs` `draw_search_bar`）  
-  `search_text` 是帧内局部变量，每帧重置为空字符串，搜索框无法输入也无过滤效果。
+- [x] **搜索栏无效** ✅ 已修复（`ui/download_dialog.rs` + `state/app_state.rs`）  
+  在 `AppState` 中新增 `download_search_text: String`（`#[serde(skip)]`，帧间持久化）；
+  `draw_search_bar` 函数签名改为接收 `state: &mut AppState`，`TextEdit` 绑定到
+  `state.download_search_text`，彻底解决每帧重置问题。
 
 ---
 
@@ -111,12 +115,14 @@
 |------|------|------|
 | 版本下载 | ✅ 完整 | 流式下载、进度、取消、重试、解压 |
 | 版本安装管理 | ✅ 完整 | 扫描、删除（含确认对话框）、启动 |
+| macOS 启动 | ✅ 已修复 | `.app` bundle 检测修复，`open` 命令可正常启动 |
 | GitHub API | ✅ 完整 | 拉取 releases、平台匹配、镜像回退 |
 | 自定义镜像 | ✅ 可用 | 用户填写 URL，自动代理 API 和下载 |
+| 下载队列计数 | ✅ 已修复 | 过滤特殊 key，数量显示正确；Cancel All 逻辑修正 |
+| 搜索栏 | 🟡 部分 | 输入持久化已修复；筛选过滤逻辑待实现（P2） |
 | 主题切换 | 🟡 部分 | Dark/Light 正常，System 未实现 |
 | 项目管理 | 🔴 占位 | 扫描可用，其余操作均为 TODO |
 | 收藏/使用时间 | 🔴 缺失 | 内存状态，重启丢失 |
-| 搜索/筛选 | 🔴 缺失 | UI 存在但无实际逻辑 |
 | 更新检查 | 🔴 缺失 | 配置开关存在，逻辑未实现 |
 
 ---
