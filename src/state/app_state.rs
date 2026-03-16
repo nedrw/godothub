@@ -56,6 +56,11 @@ pub struct AppState {
     pub current_tab: MainTab,
     /// 应用程序配置
     pub config: crate::state::AppConfig,
+    /// 项目元数据存储（持久化）
+    pub project_meta_store: crate::state::ProjectMetaStore,
+    /// 新建项目对话框状态（不序列化）
+    #[serde(skip)]
+    pub new_project_dialog: Option<NewProjectDialogState>,
     /// Tokio 运行时（不序列化）
     #[serde(skip)]
     pub runtime: Option<Arc<Runtime>>,
@@ -71,12 +76,55 @@ pub struct AppState {
     /// 删除确认对话框状态（不序列化）
     #[serde(skip)]
     pub delete_confirm: Option<DeleteConfirmState>,
+    /// 项目删除确认对话框状态（不序列化）
+    #[serde(skip)]
+    pub delete_project_confirm: Option<DeleteProjectConfirmState>,
+    /// 版本不匹配确认对话框状态（不序列化）
+    #[serde(skip)]
+    pub version_mismatch_confirm: Option<VersionMismatchConfirmState>,
     /// 下载取消令牌 (版本标识 -> 取消标志)（不序列化）
     #[serde(skip)]
     pub cancellation_tokens: HashMap<String, Arc<AtomicBool>>,
     /// 下载对话框搜索文本（帧间持久化，不序列化）
     #[serde(skip)]
     pub download_search_text: String,
+}
+
+/// 新建项目对话框状态
+#[derive(Debug, Clone)]
+pub struct NewProjectDialogState {
+    /// 项目名称
+    pub name: String,
+    /// 父目录
+    pub parent_dir: std::path::PathBuf,
+    /// 选中的 Godot 版本索引
+    pub selected_godot_index: Option<usize>,
+    /// 错误信息
+    pub error: Option<String>,
+    /// 是否正在创建
+    pub creating: bool,
+}
+
+impl NewProjectDialogState {
+    pub fn new(default_path: std::path::PathBuf) -> Self {
+        Self {
+            name: String::new(),
+            parent_dir: default_path,
+            selected_godot_index: None,
+            error: None,
+            creating: false,
+        }
+    }
+
+    /// 计算项目路径（parent_dir/name）
+    pub fn project_path(&self) -> std::path::PathBuf {
+        self.parent_dir.join(&self.name)
+    }
+
+    /// 验证输入是否有效
+    pub fn is_valid(&self) -> bool {
+        !self.name.trim().is_empty() && self.selected_godot_index.is_some() && self.error.is_none()
+    }
 }
 
 /// 删除确认对话框状态
@@ -86,6 +134,28 @@ pub struct DeleteConfirmState {
     pub version_index: usize,
     /// 要删除的版本信息（用于显示）
     pub version_info: String,
+}
+
+/// 项目删除确认对话框状态
+#[derive(Debug, Clone)]
+pub struct DeleteProjectConfirmState {
+    /// 要删除的项目路径
+    pub project_path: std::path::PathBuf,
+    /// 项目名称（用于显示）
+    pub project_name: String,
+}
+
+/// 版本不匹配确认对话框状态
+#[derive(Debug, Clone)]
+pub struct VersionMismatchConfirmState {
+    /// 项目路径
+    pub project_path: std::path::PathBuf,
+    /// 项目需要的 Godot 版本
+    pub required_version: String,
+    /// 可用的 Godot 版本（将要使用的版本）
+    pub available_version: String,
+    /// 可用的 Godot 安装路径
+    pub install_path: std::path::PathBuf,
 }
 
 /// 手动实现 Clone，跳过无法克隆的字段
@@ -99,11 +169,15 @@ impl Clone for AppState {
             show_download_dialog: self.show_download_dialog,
             current_tab: self.current_tab.clone(),
             config: self.config.clone(),
-            runtime: None, // Runtime 不支持 Clone
+            project_meta_store: self.project_meta_store.clone(),
+            new_project_dialog: None, // 对话框状态不克隆
+            runtime: None,            // Runtime 不支持 Clone
             version_refresh_state: self.version_refresh_state.clone(),
             refresh_receiver: None, // Receiver 不支持 Clone
             shared_state: None,     // 避免循环引用
             delete_confirm: None,
+            delete_project_confirm: None,
+            version_mismatch_confirm: None,
             cancellation_tokens: HashMap::new(), // 克隆时不保留取消令牌
             download_search_text: self.download_search_text.clone(),
         }
@@ -131,11 +205,15 @@ impl Default for AppState {
             show_download_dialog: false,
             current_tab: MainTab::Versions,
             config: crate::state::AppConfig::default(),
+            project_meta_store: crate::state::ProjectMetaStore::load(),
+            new_project_dialog: None,
             runtime: None,
             version_refresh_state: VersionRefreshState::default(),
             refresh_receiver: None,
             shared_state: None,
             delete_confirm: None,
+            delete_project_confirm: None,
+            version_mismatch_confirm: None,
             cancellation_tokens: HashMap::new(),
             download_search_text: String::new(),
         }

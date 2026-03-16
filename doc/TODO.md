@@ -53,21 +53,21 @@
 
 ### 项目管理
 
-- [ ] **`parse_godot_version()` 是硬编码占位**（`projects_panel.rs`）  
-  始终返回 `"4.x"`。需要解析 `project.godot` 文件中的 `config_version` 字段，  
-  并映射到实际 Godot 版本号。
+- [x] **`parse_godot_version()` 是硬编码占位** ✅ 已修复（`ui/projects_panel.rs`）  
+  已实现实际解析：读取 `project.godot` 文件中的 `config/features` (如 `"4.3"`) 或 `config_version` 字段，  
+  自动映射到正确的 Godot 版本号。
 
-- [ ] **"Open" 项目按钮无功能**（`draw_project_item()`）  
-  点击后仅打印日志。需要找到匹配的已安装 Godot 版本并以项目路径为参数启动。
+- [x] **"Open" 项目按钮无功能** ✅ 已修复（`ui/projects_panel.rs` + `services/launcher.rs`）  
+  新增 `launch_godot_with_project` 接口以参数 `--path` 启动项目。点击 Open 会寻找最接近的主/次版本引擎实例来启动。
 
-- [ ] **"New Project" 按钮无功能**（`draw_action_buttons()`）  
-  需要：弹出对话框 → 选择 Godot 版本 → 选择目录 → 初始化 `project.godot`。
+- [x] **"New Project" 按钮无功能** ✅ 已修复（`ui/projects_panel.rs`）  
+  已实现：弹出自绘模态对话框 → 输入项目名/选择父目录/选择已安装的可运行引擎版本 → 自动创建目录并初始化带有 `config_version` 的基本 `project.godot` 文件。
 
-- [ ] **"Import Project" 按钮无功能**（`draw_action_buttons()`）  
-  需要：弹出文件夹选择对话框 → 验证 `project.godot` 存在 → 加入项目列表。
+- [x] **"Import Project" 按钮无功能** ✅ 已修复（`ui/projects_panel.rs`）  
+  使用 `rfd::FileDialog` 弹出文件夹选择对话框 → 验证包含 `project.godot` 后，将外部路径记录并存储。
 
-- [ ] **项目收藏/删除无功能**（`draw_project_menu()`）  
-  "Toggle Favorite" 和 "Remove" 均只打印日志，无实际逻辑。
+- [x] **项目收藏/删除无功能** ✅ 已修复（`ui/projects_panel.rs` + `state/project_meta.rs`）  
+  添加 `ProjectMetaStore` 持久化项目状态到 `~/.gdhub/projects.json`。支持 Toggle Favorite (置顶)、Remove from list (隐藏操作)，以及 Last Opened (最后使用时间排序)的持久化存储。
 
 ### 设置面板
 
@@ -147,7 +147,7 @@
 | 下载队列计数 | ✅ 已修复 | 过滤特殊 key，数量显示正确；Cancel All 逻辑修正 |
 | 搜索栏 | ✅ 已修复 | 输入持久化 + 版本号/变体名称实时过滤均已实现；Filter 按钮下拉筛选待实现（P2） |
 | 主题切换 | ✅ 完整 | Dark/Light/System 均已实现；System 通过 `detect_system_dark_mode()` 每 30 秒轮询，动态响应系统主题切换 |
-| 项目管理 | 🔴 占位 | 扫描可用，其余操作均为 TODO |
+| 项目管理 | ✅ 完整 | 扫描、导入外部项目、新建项目、支持按版本打开、收藏、隐藏及最近使用时间持久化均已实现 |
 | 收藏/使用时间 | ✅ 已修复 | `~/.gdhub/installed.json` 持久化；切换收藏/启动/删除均触发写盘；原子写入防损坏 |
 | 更新检查 | ✅ 已修复 | `check_updates_on_start=true`（默认）时启动自动刷新；`false` 时跳过，用户可在下载对话框手动 Retry |
 | 设置面板链接 | ✅ 已修复 | GitHub/Website 按钮调用 `utils::open_url()`，跨平台打开系统默认浏览器 |

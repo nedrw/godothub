@@ -180,6 +180,7 @@ impl InstallMetaStore {
     /// 删除指定版本的元数据（版本被卸载时调用）。
     ///
     /// 键不存在时为空操作，不报错。
+    #[allow(dead_code)]
     pub fn remove(&mut self, version: &str, variant: &GodotVariant) {
         self.entries.remove(&meta_key(version, variant));
     }

@@ -34,6 +34,96 @@ pub fn launch_godot(exec_path: &Path) -> Result<(), String> {
     }
 }
 
+/// 以项目模式启动 Godot（直接打开指定项目）
+///
+/// # Arguments
+/// * `exec_path`    - Godot 可执行文件 / .app bundle 路径
+/// * `project_path` - 要打开的 Godot 项目目录路径
+///
+/// # Returns
+/// * `Result<(), String>` - 启动结果
+pub fn launch_godot_with_project(exec_path: &Path, project_path: &Path) -> Result<(), String> {
+    if !exec_path.exists() {
+        return Err(format!(
+            "Godot executable not found at: {}",
+            exec_path.display()
+        ));
+    }
+
+    log::info!(
+        "Launching Godot: {} with project: {}",
+        exec_path.display(),
+        project_path.display()
+    );
+
+    let result = launch_with_project_for_current_platform(exec_path, project_path);
+
+    match result {
+        Ok(_) => {
+            log::info!("Godot launched with project successfully");
+            Ok(())
+        }
+        Err(e) => {
+            log::error!("Failed to launch Godot with project: {}", e);
+            Err(e)
+        }
+    }
+}
+
+/// 根据当前平台启动 Godot 并附带项目路径参数
+#[cfg(target_os = "windows")]
+fn launch_with_project_for_current_platform(
+    exec_path: &Path,
+    project_path: &Path,
+) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+
+    Command::new("cmd")
+        .args([
+            "/C",
+            "start",
+            "",
+            &exec_path.display().to_string(),
+            "--path",
+            &project_path.display().to_string(),
+        ])
+        .spawn()
+        .map_err(|e| format!("Failed to start Godot with project: {}", e))?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn launch_with_project_for_current_platform(
+    exec_path: &Path,
+    project_path: &Path,
+) -> Result<(), String> {
+    Command::new(exec_path)
+        .arg("--path")
+        .arg(project_path)
+        .spawn()
+        .map_err(|e| format!("Failed to start Godot with project: {}", e))?;
+
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn launch_with_project_for_current_platform(
+    exec_path: &Path,
+    project_path: &Path,
+) -> Result<(), String> {
+    // macOS 通过 `open` 命令启动 .app bundle，使用 `--args` 传递 Godot 参数
+    Command::new("open")
+        .arg(exec_path)
+        .arg("--args")
+        .arg("--path")
+        .arg(project_path)
+        .spawn()
+        .map_err(|e| format!("Failed to start Godot with project: {}", e))?;
+
+    Ok(())
+}
+
 /// 根据当前平台启动 Godot
 #[cfg(target_os = "windows")]
 fn launch_for_current_platform(exec_path: &Path) -> Result<(), String> {

@@ -19,6 +19,7 @@ thiserror = "2.0"
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 rfd = "0.15"
+rust-ini = "0.21"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"

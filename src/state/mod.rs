@@ -4,6 +4,11 @@ pub mod app_config;
 pub mod app_state;
 pub mod app_state_impl;
 pub mod install_meta;
+pub mod project_meta;
 
 pub use app_config::{AppConfig, DownloadSource, Theme};
-pub use app_state::{AppState, DeleteConfirmState, MainTab, RefreshResult};
+pub use app_state::{
+    AppState, DeleteConfirmState, DeleteProjectConfirmState, MainTab, NewProjectDialogState,
+    RefreshResult, VersionMismatchConfirmState,
+};
+pub use project_meta::ProjectMetaStore;
